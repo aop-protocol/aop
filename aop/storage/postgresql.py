@@ -17,13 +17,13 @@ from contextlib import contextmanager
 from typing import Generator
 
 try:
-    import psycopg2
-    from psycopg2 import pool, extras
-    from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+    import psycopg2 
+    from psycopg2 import pool, extras 
+    from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT 
     HAS_PSYCOPG2 = True
 except ImportError:
     HAS_PSYCOPG2 = False
-    psycopg2 = None  # type: ignore
+    psycopg2 = None  # type: ignore[assignment] 
 
 from .base import BaseStorage
 from ..exceptions import AOPStorageError

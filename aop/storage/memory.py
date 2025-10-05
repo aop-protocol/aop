@@ -29,7 +29,7 @@ class InMemoryStorage(BaseStorage):
         memory://                         # URL format
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize in-memory storage with empty dictionary."""
         self.events: Dict[str, Dict[str, Any]] = {}
     

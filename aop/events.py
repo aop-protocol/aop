@@ -299,7 +299,7 @@ def build_tool_call_event(
         ...     params={'query': 'AOP protocol'}
         ... )
     """
-    data = {
+    data: Dict[str, Any] = {
         'tool_name': tool_name
     }
     if params is not None:

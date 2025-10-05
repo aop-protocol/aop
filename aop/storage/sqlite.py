@@ -83,7 +83,11 @@ class SQLiteStorage(BaseStorage):
     
     def _create_tables(self) -> None:
         """Create events table if it doesn't exist."""
-        assert self.conn is not None, "Connection must be initialized"
+        if self.conn is None:
+            raise AOPStorageError(
+                "Database connection not initialized",
+                operation='storage_check'
+                )
         cursor = self.conn.cursor()
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS events (
@@ -136,7 +140,11 @@ class SQLiteStorage(BaseStorage):
         Raises:
             AOPStorageError: If event cannot be stored
         """
-        assert self.conn is not None, "Connection must be initialized"
+        if self.conn is None:
+            raise AOPStorageError(
+                "Database connection not initialized",
+                operation='storage_check'
+                )
         
         try:
             cursor = self.conn.cursor()
@@ -191,7 +199,11 @@ class SQLiteStorage(BaseStorage):
         Returns:
             List of matching events
         """
-        assert self.conn is not None, "Connection must be initialized"
+        if self.conn is None:
+            raise AOPStorageError(
+                "Database connection not initialized",
+                operation='storage_check'
+                )
         
         query = "SELECT * FROM events WHERE 1=1"
         params: List[Any] = []

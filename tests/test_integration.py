@@ -17,14 +17,19 @@ from aop import (
 
 @pytest.fixture
 def client():
-    """Create temporary client for testing"""
+    """Create client with in-memory storage for testing"""
+    return AOPClient(storage="memory")
+
+
+@pytest.fixture
+def temp_db():
+    """Create temporary database for testing"""
     with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
         db_path = f.name
     
-    client = AOPClient(db_path)
-    yield client
+    storage_url = f"sqlite:///{db_path}"
+    yield storage_url
     
-    client.close()
     if os.path.exists(db_path):
         os.unlink(db_path)
 
@@ -144,7 +149,7 @@ class TestMultiAgentScenario:
             'agent_id': 'payment-agent',
             'event_type': 'ap2.payment.initiated',
             'correlation_id': correlation_id,
-            'data': {'payment_id': 'pay-789', 'amount': 10.00}
+            'data': {'payment_id': 'pay-789', 'amount': 10.00, 'currency': 'USD'}
         })
         
         # Get trace

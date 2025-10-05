@@ -4,7 +4,7 @@ AOP Client - Main interface for logging and querying AOP events.
 Supports pluggable storage backends (SQLite, PostgreSQL, In-Memory).
 """
 
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, cast
 from datetime import datetime
 
 from .storage import create_storage, BaseStorage
@@ -123,7 +123,7 @@ class AOPClient:
                     )
                 
                 # Build complete event
-                event = build_event(
+                event_dict = build_event(
                     agent_id=event['agent_id'],
                     event_type=event['event_type'],
                     data=event.get('data'),
@@ -136,17 +136,22 @@ class AOPClient:
                     error=event.get('error'),
                     validate=validate
                 )
-            elif validate:
-                # Validate without building (cast to dict for type checker)
-                event_dict = event if isinstance(event, dict) else dict(event)
-                validate_event(event_dict)
-                event = event_dict
+
+                self.storage.log_event(event_dict)
+                return str(event_dict['id'])
             
-            # Store event (ensure it's a dict)
-            event_dict = event if isinstance(event, dict) else dict(event)
-            self.storage.log_event(event_dict)
-            
-            return event_dict['id']
+            else:
+                # Event is already a complete dict or TypedDict, which is compatible
+                # with Dict[str, Any] at runtime. We cast to satisfy mypy.
+                final_event = cast(Dict[str, Any], event)
+                
+                # Validate if requested
+                if validate:
+                    validate_event(final_event)
+                
+                # Store event
+                self.storage.log_event(final_event)
+                return str(final_event['id'])
             
         except (AOPValidationError, AOPStorageError):
             raise
