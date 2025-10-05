@@ -140,7 +140,7 @@ def build_mcp_event(
     agent_id: str,
     event_type: str,
     data: Optional[Dict[str, Any]] = None,
-    **kwargs
+    **kwargs: Any
 ) -> Dict[str, Any]:
     """
     Build an MCP (Model Context Protocol) event.
@@ -184,7 +184,7 @@ def build_a2a_event(
     agent_id: str,
     event_type: str,
     data: Optional[Dict[str, Any]] = None,
-    **kwargs
+    **kwargs: Any
 ) -> Dict[str, Any]:
     """
     Build an A2A (Agent-to-Agent) event.
@@ -228,7 +228,7 @@ def build_ap2_event(
     agent_id: str,
     event_type: str,
     data: Optional[Dict[str, Any]] = None,
-    **kwargs
+    **kwargs: Any
 ) -> Dict[str, Any]:
     """
     Build an AP2 (Agent Payments) event.
@@ -276,7 +276,7 @@ def build_tool_call_event(
     agent_id: str,
     tool_name: str,
     params: Optional[Dict[str, Any]] = None,
-    **kwargs
+    **kwargs: Any
 ) -> Dict[str, Any]:
     """
     Build an MCP tool call event.
@@ -320,7 +320,7 @@ def build_tool_result_event(
     correlation_id: Optional[str] = None,
     parent_id: Optional[str] = None,
     duration_ms: Optional[int] = None,
-    **kwargs
+    **kwargs: Any
 ) -> Dict[str, Any]:
     """
     Build an MCP tool result event.
@@ -369,7 +369,7 @@ def build_task_event(
     task_id: str,
     description: Optional[str] = None,
     assignee: Optional[str] = None,
-    **kwargs
+    **kwargs: Any
 ) -> Dict[str, Any]:
     """
     Build an A2A task assigned event.
@@ -396,7 +396,7 @@ def build_task_event(
         ...     assignee='research-agent'
         ... )
     """
-    data = {
+    data: Dict[str, Any] = {
         'task_type': task_type,
         'task_id': task_id
     }
@@ -419,7 +419,7 @@ def build_payment_event(
     amount: float,
     currency: str,
     payment_method: Optional[str] = None,
-    **kwargs
+    **kwargs: Any
 ) -> Dict[str, Any]:
     """
     Build an AP2 payment initiated event.
@@ -470,7 +470,7 @@ def build_error_event(
     event_type: Optional[str] = None,
     details: Optional[Dict[str, Any]] = None,
     stack_trace: Optional[str] = None,
-    **kwargs
+    **kwargs: Any
 ) -> Dict[str, Any]:
     """
     Build an error event for any protocol.
@@ -497,11 +497,15 @@ def build_error_event(
         ...     details={'tool': 'search'}
         ... )
     """
+    # Determine event_type if not provided
+    event_type_str: str
     if event_type is None:
         if protocol == 'mcp':
-            event_type = MCPEventType.ERROR
+            event_type_str = MCPEventType.ERROR
         else:
-            event_type = f"{protocol}.error.occurred"
+            event_type_str = f"{protocol}.error.occurred"
+    else:
+        event_type_str = event_type
     
     error_info = {
         'code': error_code,
@@ -514,7 +518,7 @@ def build_error_event(
     
     return build_event(
         agent_id=agent_id,
-        event_type=event_type,
+        event_type=event_type_str,
         error=error_info,
         severity='error',
         **kwargs

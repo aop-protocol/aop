@@ -1,18 +1,17 @@
 """
-AOP Client
-Main client class for logging and querying AOP events.
+AOP Client - Main interface for logging and querying AOP events.
+
+Supports pluggable storage backends (SQLite, PostgreSQL, In-Memory).
 """
 
-import sqlite3
-import json
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Union
-from contextlib import contextmanager
+from typing import Dict, List, Optional, Any, Union
+from datetime import datetime
 
-from .types import AOPEvent
+from .storage import create_storage, BaseStorage
 from .validation import validate_event
 from .events import build_event
-from .exceptions import AOPStorageError, AOPValidationError
+from .types import AOPEvent
+from .exceptions import AOPValidationError, AOPStorageError
 
 
 class AOPClient:
@@ -21,119 +20,56 @@ class AOPClient:
     
     The client handles:
     - Event validation
-    - Storage (SQLite by default)
+    - Multiple storage backends (SQLite, PostgreSQL, In-Memory)
     - Querying events
     - Trace reconstruction
     
-    Example:
-        >>> client = AOPClient('aop_events.db')
+    Storage backends:
+    - SQLite: 'sqlite:///path/to/file.db' (default, file-based)
+    - PostgreSQL: 'postgresql://user:pass@host:5432/dbname' (production)
+    - In-Memory: 'memory' (testing only, no persistence)
+    
+    Examples:
+        >>> # SQLite (default)
+        >>> client = AOPClient()
+        >>> client = AOPClient(storage='sqlite:///aop_events.db')
+        
+        >>> # PostgreSQL (production)
+        >>> client = AOPClient(storage='postgresql://localhost/aop')
+        
+        >>> # In-Memory (testing)
+        >>> client = AOPClient(storage='memory')
+        
+        >>> # Log events
         >>> client.log_event({
         ...     'agent_id': 'my-agent',
-        ...     'event_type': 'mcp.tool.called',
+        ...     'event_type': 'mcp.tool.call',
         ...     'data': {'tool_name': 'search'}
         ... })
-        >>> events = client.query(agent_id='my-agent')
-        >>> client.close()
         
-    Or use as context manager:
-        >>> with AOPClient('aop_events.db') as client:
+        >>> # Query events
+        >>> events = client.query(agent_id='my-agent')
+        
+        >>> # Context manager
+        >>> with AOPClient(storage='memory') as client:
         ...     client.log_event({...})
     """
     
-    def __init__(self, storage_path: str = 'aop_events.db'):
+    def __init__(self, storage: Optional[str] = None):
         """
-        Initialize AOP client.
+        Initialize AOP client with specified storage backend.
         
         Args:
-            storage_path: Path to SQLite database file (default: 'aop_events.db')
+            storage: Storage connection string. Defaults to SQLite.
+                    - 'sqlite:///path/file.db' - SQLite
+                    - 'postgresql://host/db' - PostgreSQL
+                    - 'memory' - In-Memory (testing)
+            
+        Raises:
+            ValueError: If storage connection string is invalid
+            ImportError: If required storage dependencies not installed
         """
-        self.storage_path = storage_path
-        self.conn: Optional[sqlite3.Connection] = None
-        self._init_storage()
-    
-    def _init_storage(self) -> None:
-        """Initialize SQLite storage and create schema if needed."""
-        try:
-            # Create parent directory if it doesn't exist
-            storage_path = Path(self.storage_path)
-            storage_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Connect to database
-            self.conn = sqlite3.connect(str(storage_path))
-            self.conn.row_factory = sqlite3.Row  # Allow dict-like access
-            
-            # Create schema
-            self._create_schema()
-            
-        except Exception as e:
-            raise AOPStorageError(
-                f"Failed to initialize storage: {str(e)}",
-                operation='init',
-                context={'storage_path': self.storage_path}
-            )
-    
-    def _create_schema(self) -> None:
-        """Create database schema if it doesn't exist."""
-        if not self.conn:
-            raise AOPStorageError("Database connection not initialized")
-        
-        try:
-            cursor = self.conn.cursor()
-            
-            # Create events table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS events (
-                    id TEXT PRIMARY KEY,
-                    version TEXT NOT NULL,
-                    timestamp TEXT NOT NULL,
-                    agent_id TEXT NOT NULL,
-                    instance_id TEXT NOT NULL,
-                    protocol TEXT NOT NULL,
-                    event_type TEXT NOT NULL,
-                    correlation_id TEXT,
-                    parent_id TEXT,
-                    severity TEXT,
-                    duration_ms INTEGER,
-                    data TEXT,
-                    metadata TEXT,
-                    error TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            
-            # Create indexes for common queries
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_agent_id 
-                ON events(agent_id)
-            """)
-            
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_event_type 
-                ON events(event_type)
-            """)
-            
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_timestamp 
-                ON events(timestamp)
-            """)
-            
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_correlation_id 
-                ON events(correlation_id)
-            """)
-            
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_protocol 
-                ON events(protocol)
-            """)
-            
-            self.conn.commit()
-            
-        except Exception as e:
-            raise AOPStorageError(
-                f"Failed to create schema: {str(e)}",
-                operation='create_schema'
-            )
+        self.storage: BaseStorage = create_storage(storage)
     
     def log_event(
         self,
@@ -150,18 +86,31 @@ class AOPClient:
             auto_build: Whether to auto-fill missing fields (default: True)
             
         Returns:
-            str: Event ID
+            Event ID
             
         Raises:
             AOPValidationError: If validation fails
             AOPStorageError: If storage operation fails
             
-        Example:
+        Examples:
+            >>> # Minimal event (auto-build fills in fields)
             >>> event_id = client.log_event({
             ...     'agent_id': 'my-agent',
-            ...     'event_type': 'mcp.tool.called',
+            ...     'event_type': 'mcp.tool.call',
             ...     'data': {'tool_name': 'search'}
             ... })
+            
+            >>> # Complete event (no auto-build needed)
+            >>> event_id = client.log_event({
+            ...     'id': '01HQRS...',
+            ...     'version': '1.0',
+            ...     'timestamp': '2025-10-04T10:30:00Z',
+            ...     'agent_id': 'agent-1',
+            ...     'instance_id': '01HQRS...',
+            ...     'protocol': 'mcp',
+            ...     'event_type': 'mcp.tool.call',
+            ...     'data': {'tool_name': 'search'}
+            ... }, auto_build=False)
         """
         try:
             # Auto-build if needed
@@ -188,21 +137,22 @@ class AOPClient:
                     validate=validate
                 )
             elif validate:
-                # Validate without building
-                validate_event(event)
+                # Validate without building (cast to dict for type checker)
+                event_dict = event if isinstance(event, dict) else dict(event)
+                validate_event(event_dict)
+                event = event_dict
             
-            # Write to storage
-            event_id = self._write_event(event)
+            # Store event
+            self.storage.log_event(event)
             
-            return event_id
+            return event['id']
             
         except (AOPValidationError, AOPStorageError):
             raise
         except Exception as e:
             raise AOPStorageError(
-                f"Failed to log event: {str(e)}",
-                operation='log_event',
-                context={'event_type': event.get('event_type')}
+                message=f"Failed to log event: {str(e)}",
+                details={'event_type': event.get('event_type')}
             )
     
     def log_events(
@@ -222,11 +172,17 @@ class AOPClient:
             auto_build: Whether to auto-fill missing fields (default: True)
             
         Returns:
-            List[str]: List of event IDs
+            List of event IDs
             
         Raises:
             AOPValidationError: If validation fails
             AOPStorageError: If storage operation fails
+            
+        Example:
+            >>> event_ids = client.log_events([
+            ...     {'agent_id': 'agent-1', 'event_type': 'mcp.tool.call', ...},
+            ...     {'agent_id': 'agent-1', 'event_type': 'mcp.tool.result', ...}
+            ... ])
         """
         event_ids = []
         
@@ -236,64 +192,6 @@ class AOPClient:
         
         return event_ids
     
-    def _write_event(self, event: Dict[str, Any]) -> str:
-        """
-        Write event to SQLite storage.
-        
-        Args:
-            event: Complete validated event
-            
-        Returns:
-            str: Event ID
-        """
-        if not self.conn:
-            raise AOPStorageError("Database connection not initialized")
-        
-        try:
-            cursor = self.conn.cursor()
-            
-            # Serialize JSON fields
-            data_json = json.dumps(event.get('data')) if event.get('data') else None
-            metadata_json = json.dumps(event.get('metadata')) if event.get('metadata') else None
-            error_json = json.dumps(event.get('error')) if event.get('error') else None
-            
-            # Insert event
-            cursor.execute("""
-                INSERT INTO events (
-                    id, version, timestamp, agent_id, instance_id,
-                    protocol, event_type, correlation_id, parent_id,
-                    severity, duration_ms, data, metadata, error
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                event['id'],
-                event['version'],
-                event['timestamp'],
-                event['agent_id'],
-                event['instance_id'],
-                event['protocol'],
-                event['event_type'],
-                event.get('correlation_id'),
-                event.get('parent_id'),
-                event.get('severity'),
-                event.get('duration_ms'),
-                data_json,
-                metadata_json,
-                error_json
-            ))
-            
-            self.conn.commit()
-            
-            return event['id']
-            
-        except Exception as e:
-            if self.conn:
-                self.conn.rollback()
-            raise AOPStorageError(
-                f"Failed to write event: {str(e)}",
-                operation='write',
-                context={'event_id': event.get('id')}
-            )
-    
     def query(
         self,
         agent_id: Optional[str] = None,
@@ -301,8 +199,8 @@ class AOPClient:
         protocol: Optional[str] = None,
         correlation_id: Optional[str] = None,
         severity: Optional[str] = None,
-        start_time: Optional[str] = None,
-        end_time: Optional[str] = None,
+        start_time: Optional[Union[str, datetime]] = None,
+        end_time: Optional[Union[str, datetime]] = None,
         limit: int = 100,
         order_by: str = 'timestamp',
         order_desc: bool = True
@@ -314,134 +212,275 @@ class AOPClient:
             agent_id: Filter by agent ID
             event_type: Filter by event type
             protocol: Filter by protocol (mcp, a2a, ap2)
-            correlation_id: Filter by correlation ID
+            correlation_id: Filter by correlation ID (trace)
             severity: Filter by severity level
-            start_time: Filter events after this timestamp (ISO 8601)
-            end_time: Filter events before this timestamp (ISO 8601)
-            limit: Maximum number of events to return (default: 100)
+            start_time: Events after this timestamp (ISO 8601 or datetime)
+            end_time: Events before this timestamp (ISO 8601 or datetime)
+            limit: Maximum number of events (default: 100)
             order_by: Field to order by (default: 'timestamp')
             order_desc: Order descending (default: True)
             
         Returns:
-            List[Dict[str, Any]]: List of events
+            List of events
+            
+        Examples:
+            >>> # Get recent events for an agent
+            >>> events = client.query(agent_id='my-agent', limit=10)
+            
+            >>> # Get all tool calls in a time range
+            >>> events = client.query(
+            ...     event_type='mcp.tool.call',
+            ...     start_time='2025-10-01T00:00:00Z',
+            ...     end_time='2025-10-02T00:00:00Z'
+            ... )
+            
+            >>> # Get all events in a trace
+            >>> trace = client.query(correlation_id='trace-123')
+        """
+        # Convert string timestamps to datetime if needed
+        start_dt = None
+        end_dt = None
+        
+        if start_time:
+            if isinstance(start_time, str):
+                start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+            else:
+                start_dt = start_time
+        
+        if end_time:
+            if isinstance(end_time, str):
+                end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+            else:
+                end_dt = end_time
+        
+        # Query storage (base interface only supports subset of filters)
+        events = self.storage.query_events(
+            agent_id=agent_id,
+            event_type=event_type,
+            protocol=protocol,
+            start_time=start_dt,
+            end_time=end_dt,
+            correlation_id=correlation_id,
+            limit=limit
+        )
+        
+        # Apply additional filters in-memory (severity, custom ordering)
+        if severity:
+            events = [e for e in events if e.get('severity') == severity]
+        
+        # Apply custom ordering if different from default
+        if order_by != 'timestamp' or not order_desc:
+            events.sort(
+                key=lambda e: e.get(order_by, ''),
+                reverse=order_desc
+            )
+        
+        return events
+    
+    def get_event(self, event_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve a single event by its ID.
+        
+        Args:
+            event_id: Unique event identifier (UUID v7)
+            
+        Returns:
+            Event dictionary if found, None otherwise
             
         Example:
-            >>> events = client.query(
-            ...     agent_id='my-agent',
-            ...     event_type='mcp.tool.called',
-            ...     limit=10
-            ... )
+            >>> event = client.get_event('01HQRS9XOP2JRBN7K01RGUWZ1W')
+            >>> if event:
+            ...     print(event['event_type'])
         """
-        if not self.conn:
-            raise AOPStorageError("Database connection not initialized")
-        
-        try:
-            cursor = self.conn.cursor()
-            
-            # Build query
-            query = "SELECT * FROM events WHERE 1=1"
-            params = []
-            
-            if agent_id:
-                query += " AND agent_id = ?"
-                params.append(agent_id)
-            
-            if event_type:
-                query += " AND event_type = ?"
-                params.append(event_type)
-            
-            if protocol:
-                query += " AND protocol = ?"
-                params.append(protocol)
-            
-            if correlation_id:
-                query += " AND correlation_id = ?"
-                params.append(correlation_id)
-            
-            if severity:
-                query += " AND severity = ?"
-                params.append(severity)
-            
-            if start_time:
-                query += " AND timestamp >= ?"
-                params.append(start_time)
-            
-            if end_time:
-                query += " AND timestamp <= ?"
-                params.append(end_time)
-            
-            # Add ordering
-            order = 'DESC' if order_desc else 'ASC'
-            query += f" ORDER BY {order_by} {order}"
-            
-            # Add limit
-            query += " LIMIT ?"
-            params.append(limit)
-            
-            # Execute query
-            cursor.execute(query, params)
-            rows = cursor.fetchall()
-            
-            # Convert to dict and deserialize JSON fields
-            events = []
-            for row in rows:
-                event = dict(row)
-                
-                # Deserialize JSON fields
-                if event.get('data'):
-                    event['data'] = json.loads(event['data'])
-                if event.get('metadata'):
-                    event['metadata'] = json.loads(event['metadata'])
-                if event.get('error'):
-                    event['error'] = json.loads(event['error'])
-                
-                # Remove created_at (internal field)
-                event.pop('created_at', None)
-                
-                events.append(event)
-            
-            return events
-            
-        except Exception as e:
-            raise AOPStorageError(
-                f"Failed to query events: {str(e)}",
-                operation='query'
-            )
+        return self.storage.get_event(event_id)
     
     def get_trace(self, correlation_id: str) -> List[Dict[str, Any]]:
         """
         Get all events for a trace by correlation_id.
         
-        Returns events ordered by timestamp.
+        Returns events ordered chronologically (oldest first).
         
         Args:
             correlation_id: Trace correlation ID
             
         Returns:
-            List[Dict[str, Any]]: List of events in trace
+            List of events in trace
             
         Example:
-            >>> trace = client.get_trace('trace-123')
+            >>> trace = client.get_trace('4bf92f3577b34da6a3ce929d0e0e4736')
             >>> print(f"Trace has {len(trace)} events")
+            >>> for event in trace:
+            ...     print(f"{event['timestamp']}: {event['event_type']}")
         """
-        return self.query(
+        events = self.storage.query_events(
             correlation_id=correlation_id,
-            limit=10000,  # Large limit for complete trace
-            order_by='timestamp',
-            order_desc=False  # Chronological order
+            limit=10000  # Large limit for complete trace
         )
+        
+        # Sort chronologically (oldest first) for trace reconstruction
+        events.sort(key=lambda e: e.get('timestamp', ''))
+        
+        return events
     
     def close(self) -> None:
-        """Close database connection."""
-        if self.conn:
-            self.conn.close()
-            self.conn = None
+        """
+        Close storage connections and cleanup resources.
+        
+        Should be called when client is no longer needed.
+        Safe to call multiple times.
+        
+        Example:
+            >>> client = AOPClient()
+            >>> # ... use client ...
+            >>> client.close()
+        """
+        self.storage.close()
     
     def __enter__(self):
         """Context manager entry."""
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit."""
+        """Context manager exit - ensures cleanup."""
         self.close()
         return False
+    
+    # Convenience methods for common event types
+    
+    def log_tool_call(
+        self,
+        agent_id: str,
+        tool_name: str,
+        parameters: Dict[str, Any],
+        correlation_id: Optional[str] = None,
+        parent_id: Optional[str] = None
+    ) -> str:
+        """
+        Convenience method to log MCP tool call event.
+        
+        Args:
+            agent_id: Agent identifier
+            tool_name: Name of tool being called
+            parameters: Tool parameters
+            correlation_id: Optional correlation ID for tracing
+            parent_id: Optional parent event ID
+            
+        Returns:
+            Event ID
+            
+        Example:
+            >>> event_id = client.log_tool_call(
+            ...     agent_id='agent-1',
+            ...     tool_name='web_search',
+            ...     parameters={'query': 'AOP protocol'}
+            ... )
+        """
+        return self.log_event({
+            'agent_id': agent_id,
+            'event_type': 'mcp.tool.call',
+            'data': {
+                'tool_name': tool_name,
+                'parameters': parameters
+            },
+            'correlation_id': correlation_id,
+            'parent_id': parent_id
+        })
+    
+    def log_tool_result(
+        self,
+        agent_id: str,
+        tool_name: str,
+        result: Any,
+        duration_ms: int,
+        correlation_id: Optional[str] = None,
+        parent_id: Optional[str] = None
+    ) -> str:
+        """
+        Convenience method to log MCP tool result event.
+        
+        Args:
+            agent_id: Agent identifier
+            tool_name: Name of tool that was called
+            result: Tool execution result
+            duration_ms: Execution duration in milliseconds
+            correlation_id: Optional correlation ID for tracing
+            parent_id: Optional parent event ID
+            
+        Returns:
+            Event ID
+        """
+        return self.log_event({
+            'agent_id': agent_id,
+            'event_type': 'mcp.tool.result',
+            'data': {
+                'tool_name': tool_name,
+                'result': result
+            },
+            'duration_ms': duration_ms,
+            'correlation_id': correlation_id,
+            'parent_id': parent_id
+        })
+    
+    def log_task_start(
+        self,
+        agent_id: str,
+        task_id: str,
+        task_description: str,
+        correlation_id: Optional[str] = None
+    ) -> str:
+        """
+        Convenience method to log A2A task start event.
+        
+        Args:
+            agent_id: Agent identifier
+            task_id: Unique task identifier
+            task_description: Human-readable task description
+            correlation_id: Optional correlation ID for tracing
+            
+        Returns:
+            Event ID
+        """
+        return self.log_event({
+            'agent_id': agent_id,
+            'event_type': 'a2a.task.start',
+            'data': {
+                'task_id': task_id,
+                'description': task_description
+            },
+            'correlation_id': correlation_id
+        })
+    
+    def log_task_complete(
+        self,
+        agent_id: str,
+        task_id: str,
+        result: Any,
+        duration_ms: int,
+        correlation_id: Optional[str] = None,
+        parent_id: Optional[str] = None
+    ) -> str:
+        """
+        Convenience method to log A2A task completion event.
+        
+        Args:
+            agent_id: Agent identifier
+            task_id: Unique task identifier
+            result: Task execution result
+            duration_ms: Execution duration in milliseconds
+            correlation_id: Optional correlation ID for tracing
+            parent_id: Optional parent event ID
+            
+        Returns:
+            Event ID
+        """
+        return self.log_event({
+            'agent_id': agent_id,
+            'event_type': 'a2a.task.complete',
+            'data': {
+                'task_id': task_id,
+                'result': result
+            },
+            'duration_ms': duration_ms,
+            'correlation_id': correlation_id,
+            'parent_id': parent_id
+        })
