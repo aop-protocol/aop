@@ -1,3 +1,4 @@
+from pathlib import Path
 """
 SQLite storage backend for AOP events.
 
@@ -43,15 +44,20 @@ class SQLiteStorage(BaseStorage):
         """
         self.connection_string = connection_string
         self.db_path = self._parse_connection_string(connection_string)
+        self.conn = None
         
         try:
+            # Create parent directory if it doesn't exist
+            storage_path = Path(self.db_path)
+            storage_path.parent.mkdir(parents=True, exist_ok=True)
+            
             self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
             self.conn.row_factory = sqlite3.Row
             self._create_tables()
-        except sqlite3.Error as e:
+        except (sqlite3.Error, OSError, IOError) as e:
             raise AOPStorageError(
-                message=f"Failed to initialize SQLite storage: {e}",
-                details={'connection_string': connection_string}
+                f"Failed to initialize SQLite storage: {e}",
+                operation='init'
             )
     
     def _parse_connection_string(self, connection_string: str) -> str:
@@ -132,7 +138,7 @@ class SQLiteStorage(BaseStorage):
         try:
             cursor = self.conn.cursor()
             cursor.execute("""
-                INSERT INTO events (
+                INSERT OR IGNORE INTO events (
                     id, version, timestamp, agent_id, instance_id,
                     protocol, event_type, correlation_id, parent_id,
                     duration_ms, data
@@ -151,10 +157,10 @@ class SQLiteStorage(BaseStorage):
                 json.dumps(event.get('data', {}))
             ))
             self.conn.commit()
-        except sqlite3.Error as e:
+        except Exception as e:
             raise AOPStorageError(
-                message=f"Failed to log event: {e}",
-                details={'event_id': event.get('id')}
+                f"Failed to log event: {e}",
+                operation='log_event'
             )
     
     def query_events(
@@ -229,14 +235,10 @@ class SQLiteStorage(BaseStorage):
                 events.append(event)
             
             return events
-        except sqlite3.Error as e:
+        except Exception as e:
             raise AOPStorageError(
-                message=f"Failed to query events: {e}",
-                details={'filters': {
-                    'agent_id': agent_id,
-                    'event_type': event_type,
-                    'protocol': protocol
-                }}
+                f"Failed to query events: {e}",
+                operation='query_events'
             )
     
     def get_event(self, event_id: str) -> Optional[Dict[str, Any]]:
@@ -261,10 +263,10 @@ class SQLiteStorage(BaseStorage):
                 return event
             
             return None
-        except sqlite3.Error as e:
+        except Exception as e:
             raise AOPStorageError(
-                message=f"Failed to get event: {e}",
-                details={'event_id': event_id}
+                f"Failed to get event: {e}",
+                operation='get_event'
             )
     
     def close(self) -> None:

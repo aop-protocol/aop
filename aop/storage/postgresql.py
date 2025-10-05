@@ -79,10 +79,10 @@ class PostgreSQLStorage(BaseStorage):
             # Initialize database schema
             self._create_tables()
             
-        except psycopg2.Error as e:
+        except Exception as e:
             raise AOPStorageError(
-                message=f"Failed to initialize PostgreSQL storage: {e}",
-                details={'connection_string': self._sanitize_connection_string(connection_string)}
+                f"Failed to initialize PostgreSQL storage: {e}",
+                operation='init'
             )
     
     def _sanitize_connection_string(self, conn_str: str) -> str:
@@ -190,10 +190,10 @@ class PostgreSQLStorage(BaseStorage):
                         json.dumps(event.get('data', {}))
                     ))
                     conn.commit()
-        except psycopg2.Error as e:
+        except Exception as e:
             raise AOPStorageError(
-                message=f"Failed to log event: {e}",
-                details={'event_id': event.get('id')}
+                f"Failed to log event: {e}",
+                operation='log_event'
             )
     
     def query_events(
@@ -270,14 +270,10 @@ class PostgreSQLStorage(BaseStorage):
                         events.append(event)
                     
                     return events
-        except psycopg2.Error as e:
+        except Exception as e:
             raise AOPStorageError(
-                message=f"Failed to query events: {e}",
-                details={'filters': {
-                    'agent_id': agent_id,
-                    'event_type': event_type,
-                    'protocol': protocol
-                }}
+                f"Failed to query events: {e}",
+                operation='query_events'
             )
     
     def get_event(self, event_id: str) -> Optional[Dict[str, Any]]:
@@ -306,10 +302,10 @@ class PostgreSQLStorage(BaseStorage):
                         return event
                     
                     return None
-        except psycopg2.Error as e:
+        except Exception as e:
             raise AOPStorageError(
-                message=f"Failed to get event: {e}",
-                details={'event_id': event_id}
+                f"Failed to get event: {e}",
+                operation='get_event'
             )
     
     def close(self) -> None:

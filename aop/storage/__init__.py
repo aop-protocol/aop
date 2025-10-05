@@ -51,8 +51,11 @@ def create_storage(connection_string: Optional[str] = None) -> BaseStorage:
     if connection_string is None:
         return SQLiteStorage('sqlite:///aop_events.db')
     
+    # Normalize to lowercase for comparison
+    conn_lower = connection_string.lower()
+    
     # Handle simple 'memory' keyword
-    if connection_string == 'memory' or connection_string == 'memory://':
+    if conn_lower == 'memory' or conn_lower == 'memory://':
         return InMemoryStorage()
     
     # Parse URL-style connection strings
@@ -75,12 +78,14 @@ def create_storage(connection_string: Optional[str] = None) -> BaseStorage:
                 f"Supported backends: sqlite, postgresql, memory"
             )
             
+    except ValueError:
+        # Re-raise ValueError as-is (already formatted)
+        raise
     except Exception as e:
-        if isinstance(e, ValueError):
-            raise
+        # Wrap other exceptions in ValueError with original error type
         raise ValueError(
             f"Invalid connection string format: '{connection_string}'. "
-            f"Error: {e}"
+            f"Error: {type(e).__name__}: {str(e)}"
         )
 
 
