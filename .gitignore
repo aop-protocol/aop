@@ -254,3 +254,9 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+
+:memory:
+*.log
+
+aop/SQLITE:
+

@@ -268,7 +268,11 @@ class SQLiteStorage(BaseStorage):
         Returns:
             Event dictionary or None if not found
         """
-        assert self.conn is not None, "Connection must be initialized"
+        if self.conn is None:
+            raise AOPStorageError(
+                "Connection must be initialized",
+                operation="close"
+            )
         
         try:
             cursor = self.conn.cursor()
