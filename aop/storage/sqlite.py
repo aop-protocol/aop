@@ -1,4 +1,3 @@
-from pathlib import Path
 """
 SQLite storage backend for AOP events.
 
@@ -9,6 +8,7 @@ File-based storage suitable for:
 - Scenarios with <1000 events/sec throughput
 """
 
+from pathlib import Path
 import sqlite3
 import json
 from typing import List, Dict, Optional, Any
@@ -44,7 +44,7 @@ class SQLiteStorage(BaseStorage):
         """
         self.connection_string = connection_string
         self.db_path = self._parse_connection_string(connection_string)
-        self.conn = None
+        self.conn: Optional[sqlite3.Connection] = None
         
         try:
             # Create parent directory if it doesn't exist
@@ -83,7 +83,7 @@ class SQLiteStorage(BaseStorage):
     
     def _create_tables(self) -> None:
         """Create events table if it doesn't exist."""
-        assert self.conn is not None
+        assert self.conn is not None, "Connection must be initialized"
         cursor = self.conn.cursor()
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS events (
@@ -136,6 +136,8 @@ class SQLiteStorage(BaseStorage):
         Raises:
             AOPStorageError: If event cannot be stored
         """
+        assert self.conn is not None, "Connection must be initialized"
+        
         try:
             cursor = self.conn.cursor()
             cursor.execute("""
@@ -189,6 +191,8 @@ class SQLiteStorage(BaseStorage):
         Returns:
             List of matching events
         """
+        assert self.conn is not None, "Connection must be initialized"
+        
         query = "SELECT * FROM events WHERE 1=1"
         params: List[Any] = []
         
@@ -252,6 +256,8 @@ class SQLiteStorage(BaseStorage):
         Returns:
             Event dictionary or None if not found
         """
+        assert self.conn is not None, "Connection must be initialized"
+        
         try:
             cursor = self.conn.cursor()
             cursor.execute("SELECT * FROM events WHERE id = ?", (event_id,))

@@ -342,10 +342,9 @@ class AOPClient:
         """Context manager entry."""
         return self
     
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit - ensures cleanup."""
         self.close()
-        return False
     
     # Convenience methods for common event types
     

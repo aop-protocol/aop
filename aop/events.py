@@ -396,19 +396,19 @@ def build_task_event(
         ...     assignee='research-agent'
         ... )
     """
-    data: Dict[str, Any] = {
+    task_data: Dict[str, Any] = {
         'task_type': task_type,
         'task_id': task_id
     }
     if description is not None:
-        data['description'] = description
+        task_data['description'] = description
     if assignee is not None:
-        data['assignee'] = assignee
+        task_data['assignee'] = assignee
     
     return build_a2a_event(
         agent_id=agent_id,
         event_type=A2AEventType.TASK_ASSIGNED,
-        data=data,
+        data=task_data,
         **kwargs
     )
 
@@ -507,19 +507,19 @@ def build_error_event(
     else:
         event_type_str = event_type
     
-    error_info = {
+    error_data: Dict[str, Any] = {
         'code': error_code,
         'message': error_message
     }
     if details is not None:
-        error_info['details'] = details
+        error_data['details'] = details
     if stack_trace is not None:
-        error_info['stack_trace'] = stack_trace
+        error_data['stack_trace'] = stack_trace
     
     return build_event(
         agent_id=agent_id,
         event_type=event_type_str,
-        error=error_info,
+        error=error_data,
         severity='error',
         **kwargs
     )
