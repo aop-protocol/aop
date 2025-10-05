@@ -142,17 +142,19 @@ class AOPClient:
                 validate_event(event_dict)
                 event = event_dict
             
-            # Store event
-            self.storage.log_event(event)
+            # Store event (ensure it's a dict)
+            event_dict = event if isinstance(event, dict) else dict(event)
+            self.storage.log_event(event_dict)
             
-            return event['id']
+            return event_dict['id']
             
         except (AOPValidationError, AOPStorageError):
             raise
         except Exception as e:
             raise AOPStorageError(
-                message=f"Failed to log event: {str(e)}",
-                details={'event_type': event.get('event_type')}
+                f"Failed to log event: {str(e)}",
+                operation='log_event',
+                context={'event_type': event.get('event_type')}
             )
     
     def log_events(
@@ -336,11 +338,11 @@ class AOPClient:
         """
         self.storage.close()
     
-    def __enter__(self):
+    def __enter__(self) -> 'AOPClient':
         """Context manager entry."""
         return self
     
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
         """Context manager exit - ensures cleanup."""
         self.close()
         return False

@@ -83,6 +83,7 @@ class SQLiteStorage(BaseStorage):
     
     def _create_tables(self) -> None:
         """Create events table if it doesn't exist."""
+        assert self.conn is not None
         cursor = self.conn.cursor()
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS events (
@@ -189,7 +190,7 @@ class SQLiteStorage(BaseStorage):
             List of matching events
         """
         query = "SELECT * FROM events WHERE 1=1"
-        params = []
+        params: List[Any] = []
         
         if agent_id:
             query += " AND agent_id = ?"

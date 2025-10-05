@@ -14,6 +14,7 @@ from typing import List, Dict, Optional, Any
 from datetime import datetime
 from urllib.parse import urlparse
 from contextlib import contextmanager
+from typing import Generator
 
 try:
     import psycopg2
@@ -93,7 +94,7 @@ class PostgreSQLStorage(BaseStorage):
         return conn_str
     
     @contextmanager
-    def _get_connection(self):
+    def _get_connection(self) -> Generator[Any, None, None]:
         """Get connection from pool (context manager)."""
         conn = self.pool.getconn()
         try:
@@ -222,7 +223,7 @@ class PostgreSQLStorage(BaseStorage):
             List of matching events
         """
         query = "SELECT * FROM events WHERE 1=1"
-        params = []
+        params: List[Any] = []
         
         if agent_id:
             query += " AND agent_id = %s"

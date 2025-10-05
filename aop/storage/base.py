@@ -106,10 +106,10 @@ class BaseStorage(ABC):
         """
         pass
     
-    def __enter__(self):
+    def __enter__(self) -> 'BaseStorage':
         """Context manager entry."""
         return self
     
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit - ensures cleanup."""
         self.close()
