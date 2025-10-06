@@ -162,7 +162,7 @@ class TestAP2EventTypes:
             attr for attr in dir(AP2EventType)
             if not attr.startswith('_')
         ]
-        assert len(ap2_events) == 7
+        assert len(ap2_events) == 8
 
 
 class TestAllEventTypes:
@@ -170,7 +170,7 @@ class TestAllEventTypes:
     
     def test_all_event_types_count(self):
         """Test ALL_EVENT_TYPES has 33 event types (15 + 10 + 6)"""
-        assert len(ALL_EVENT_TYPES) == 33
+        assert len(ALL_EVENT_TYPES) == 34
     
     def test_all_event_types_contains_mcp(self):
         """Test ALL_EVENT_TYPES contains MCP events"""

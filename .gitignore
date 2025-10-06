@@ -258,5 +258,5 @@ Thumbs.db
 :memory:
 *.log
 
-aop/SQLITE:
+./SQLITE:
 

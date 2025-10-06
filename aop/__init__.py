@@ -99,6 +99,14 @@ from .utils import (
     validate_event_type_format,
     validate_severity
 )
+# ============================================================================
+# ADAPTERS
+# ============================================================================
+
+from .adapters.mcp import MCPAdapter
+from .adapters.a2a import A2AAdapter
+from .adapters.ap2 import AP2Adapter
+from .trace import trace_context
 
 # ============================================================================
 # PUBLIC API
@@ -151,4 +159,10 @@ __all__ = [
     'validate_protocol',
     'validate_event_type_format',
     'validate_severity',
+
+    # Adapters
+    'MCPAdapter',
+    'A2AAdapter', 
+    'AP2Adapter',
+    'trace_context',
 ]

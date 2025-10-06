@@ -4,7 +4,7 @@ AOP Client - Main interface for logging and querying AOP events.
 Supports pluggable storage backends (SQLite, PostgreSQL, In-Memory).
 """
 
-from typing import Dict, List, Optional, Any, Union, cast
+from typing import Dict, List, Optional, Any, ContextManager, Union, cast
 from datetime import datetime
 
 from .storage import create_storage, BaseStorage
@@ -12,6 +12,11 @@ from .validation import validate_event
 from .events import build_event
 from .types import AOPEvent
 from .exceptions import AOPValidationError, AOPStorageError
+
+from .adapters.mcp import MCPAdapter
+from .adapters.a2a import A2AAdapter
+from .adapters.ap2 import AP2Adapter
+from .trace import trace_context
 
 
 class AOPClient:
@@ -328,6 +333,44 @@ class AOPClient:
         events.sort(key=lambda e: e.get('timestamp', ''))
         
         return events
+    
+    @property
+    def mcp(self) -> MCPAdapter:
+        """MCP protocol adapter."""
+        if not hasattr(self, '_mcp_adapter'):
+            self._mcp_adapter = MCPAdapter(self)
+        return self._mcp_adapter
+
+    @property
+    def a2a(self) -> A2AAdapter:
+        """A2A protocol adapter."""
+        if not hasattr(self, '_a2a_adapter'):
+            self._a2a_adapter = A2AAdapter(self)
+        return self._a2a_adapter
+
+    @property
+    def ap2(self) -> AP2Adapter:
+        """AP2 protocol adapter."""
+        if not hasattr(self, '_ap2_adapter'):
+            self._ap2_adapter = AP2Adapter(self)
+        return self._ap2_adapter
+
+    def trace(self, correlation_id: str) -> ContextManager[None]:
+        """
+        Create trace context for automatic correlation.
+        
+        Args:
+            correlation_id: Correlation ID for this trace
+            
+        Returns:
+            Context manager for trace
+            
+        Example:
+            >>> with client.trace('trace-123'):
+            ...     client.mcp.log_tool_call(...)
+            ...     client.a2a.log_task(...)
+        """
+        return trace_context(correlation_id)
     
     def close(self) -> None:
         """

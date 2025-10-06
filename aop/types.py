@@ -109,6 +109,7 @@ class AP2EventType:
     # Payment Events
     PAYMENT_INITIATED = "ap2.payment.initiated"
     PAYMENT_COMPLETED = "ap2.payment.completed"
+    PAYMENT_FAILED = "ap2.payment.failed"
 
     # Error Events
     ERROR = "ap2.error.occurred"
@@ -136,6 +137,7 @@ ALL_EVENT_TYPES = (
     [AP2EventType.MANDATE_CREATED, AP2EventType.MANDATE_REVOKED,
      AP2EventType.APPROVAL_REQUESTED, AP2EventType.APPROVAL_GRANTED,
      AP2EventType.PAYMENT_INITIATED, AP2EventType.PAYMENT_COMPLETED,
+     AP2EventType.PAYMENT_FAILED,
      AP2EventType.ERROR]
 )
 
