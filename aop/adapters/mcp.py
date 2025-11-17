@@ -2,10 +2,15 @@
 MCP Protocol Adapter - Convenience methods for MCP events.
 """
 
-from typing import Optional, Dict, Any, Generator
+from typing import Optional, Dict, Any, Generator, Callable, TypeVar
 from contextlib import contextmanager
+import functools
+import inspect
+import time
 
 from .base import BaseAdapter, EventHandle
+
+F = TypeVar('F', bound=Callable[..., Any])
 
 
 class MCPAdapter(BaseAdapter):
@@ -326,3 +331,185 @@ class MCPAdapter(BaseAdapter):
                 parent_id=call_handle.id
             )
             raise
+
+    def observe_tool(
+        self,
+        agent_id: str,
+        correlation_id: Optional[str] = None,
+        parent_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Callable[[F], F]:
+        """
+        Decorator for automatic tool execution observability.
+
+        Automatically logs tool calls, results, errors, and duration.
+        Works with both sync and async functions.
+
+        Args:
+            agent_id: Agent identifier
+            correlation_id: Correlation ID (uses trace context if None)
+            parent_id: Parent event ID
+            metadata: Event metadata
+
+        Returns:
+            Decorated function
+
+        Example:
+            >>> @mcp.tool()
+            >>> @client.mcp.observe_tool("my-agent")
+            >>> async def search(query: str) -> dict:
+            ...     return {"results": [...]}
+
+            >>> # Before decorator (7 lines):
+            >>> with client.mcp.tool_execution('agent', 'search', {'query': q}) as call:
+            ...     result = perform_search(q)
+            ...     call.set_result(result, duration_ms=150)
+
+            >>> # After decorator (1 line):
+            >>> @client.mcp.observe_tool('agent')
+            >>> async def search(query: str): ...
+        """
+        def decorator(func: F) -> F:
+            tool_name = func.__name__
+            is_async = inspect.iscoroutinefunction(func)
+
+            if is_async:
+                @functools.wraps(func)
+                async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                    # Capture parameters
+                    params = self._extract_params(func, args, kwargs)
+
+                    # Log tool call
+                    call_handle = self.log_tool_call(
+                        agent_id=agent_id,
+                        tool_name=tool_name,
+                        params=params,
+                        correlation_id=correlation_id,
+                        parent_id=parent_id,
+                        metadata=metadata
+                    )
+
+                    start_time = time.perf_counter()
+
+                    try:
+                        # Execute function
+                        result = await func(*args, **kwargs)
+
+                        # Calculate duration
+                        duration_ms = int((time.perf_counter() - start_time) * 1000)
+
+                        # Log result
+                        self.log_tool_result(
+                            agent_id=agent_id,
+                            tool_name=tool_name,
+                            result=result,
+                            duration_ms=duration_ms,
+                            correlation_id=self._get_correlation_id(correlation_id),
+                            parent_id=call_handle.id,
+                            metadata=metadata
+                        )
+
+                        return result
+
+                    except Exception as e:
+                        # Calculate duration up to error
+                        duration_ms = int((time.perf_counter() - start_time) * 1000)
+
+                        # Log error
+                        self.log_tool_error(
+                            agent_id=agent_id,
+                            tool_name=tool_name,
+                            error_message=str(e),
+                            error_code=type(e).__name__,
+                            correlation_id=self._get_correlation_id(correlation_id),
+                            parent_id=call_handle.id,
+                            metadata=metadata
+                        )
+                        raise
+
+                return async_wrapper  # type: ignore
+
+            else:
+                @functools.wraps(func)
+                def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+                    # Capture parameters
+                    params = self._extract_params(func, args, kwargs)
+
+                    # Log tool call
+                    call_handle = self.log_tool_call(
+                        agent_id=agent_id,
+                        tool_name=tool_name,
+                        params=params,
+                        correlation_id=correlation_id,
+                        parent_id=parent_id,
+                        metadata=metadata
+                    )
+
+                    start_time = time.perf_counter()
+
+                    try:
+                        # Execute function
+                        result = func(*args, **kwargs)
+
+                        # Calculate duration
+                        duration_ms = int((time.perf_counter() - start_time) * 1000)
+
+                        # Log result
+                        self.log_tool_result(
+                            agent_id=agent_id,
+                            tool_name=tool_name,
+                            result=result,
+                            duration_ms=duration_ms,
+                            correlation_id=self._get_correlation_id(correlation_id),
+                            parent_id=call_handle.id,
+                            metadata=metadata
+                        )
+
+                        return result
+
+                    except Exception as e:
+                        # Calculate duration up to error
+                        duration_ms = int((time.perf_counter() - start_time) * 1000)
+
+                        # Log error
+                        self.log_tool_error(
+                            agent_id=agent_id,
+                            tool_name=tool_name,
+                            error_message=str(e),
+                            error_code=type(e).__name__,
+                            correlation_id=self._get_correlation_id(correlation_id),
+                            parent_id=call_handle.id,
+                            metadata=metadata
+                        )
+                        raise
+
+                return sync_wrapper  # type: ignore
+
+        return decorator
+
+    def _extract_params(
+        self,
+        func: Callable[..., Any],
+        args: tuple,
+        kwargs: dict
+    ) -> Dict[str, Any]:
+        """
+        Extract function parameters from args and kwargs.
+
+        Args:
+            func: The function being called
+            args: Positional arguments
+            kwargs: Keyword arguments
+
+        Returns:
+            Dictionary of parameter names to values
+        """
+        sig = inspect.signature(func)
+        bound_args = sig.bind_partial(*args, **kwargs)
+        bound_args.apply_defaults()
+
+        # Convert to dict, excluding 'self' if present
+        params = dict(bound_args.arguments)
+        params.pop('self', None)
+
+        return params

@@ -101,7 +101,10 @@ class SQLiteStorage(BaseStorage):
                 correlation_id TEXT,
                 parent_id TEXT,
                 duration_ms INTEGER,
+                severity TEXT,
                 data TEXT NOT NULL,
+                error TEXT,
+                metadata TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -129,7 +132,33 @@ class SQLiteStorage(BaseStorage):
         """)
         
         self.conn.commit()
-    
+
+        # Migrate existing tables to add new columns
+        self._migrate_schema()
+
+    def _migrate_schema(self) -> None:
+        """Add missing columns to existing tables."""
+        if self.conn is None:
+            return
+
+        cursor = self.conn.cursor()
+
+        # Check which columns exist
+        cursor.execute("PRAGMA table_info(events)")
+        columns = {row[1] for row in cursor.fetchall()}
+
+        # Add missing columns
+        if 'severity' not in columns:
+            cursor.execute("ALTER TABLE events ADD COLUMN severity TEXT")
+
+        if 'error' not in columns:
+            cursor.execute("ALTER TABLE events ADD COLUMN error TEXT")
+
+        if 'metadata' not in columns:
+            cursor.execute("ALTER TABLE events ADD COLUMN metadata TEXT")
+
+        self.conn.commit()
+
     def log_event(self, event: Dict[str, Any]) -> None:
         """
         Store a single AOP event.
@@ -152,8 +181,8 @@ class SQLiteStorage(BaseStorage):
                 INSERT OR IGNORE INTO events (
                     id, version, timestamp, agent_id, instance_id,
                     protocol, event_type, correlation_id, parent_id,
-                    duration_ms, data
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    duration_ms, severity, data, error, metadata
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 event['id'],
                 event['version'],
@@ -165,7 +194,10 @@ class SQLiteStorage(BaseStorage):
                 event.get('correlation_id'),
                 event.get('parent_id'),
                 event.get('duration_ms'),
-                json.dumps(event.get('data', {}))
+                event.get('severity'),
+                json.dumps(event.get('data', {})),
+                json.dumps(event['error']) if event.get('error') else None,
+                json.dumps(event['metadata']) if event.get('metadata') else None
             ))
             self.conn.commit()
         except Exception as e:
@@ -247,10 +279,19 @@ class SQLiteStorage(BaseStorage):
             for row in rows:
                 event = dict(row)
                 event['data'] = json.loads(event['data'])
+
+                # Reconstruct error field if present
+                if event.get('error'):
+                    event['error'] = json.loads(event['error'])
+
+                # Reconstruct metadata field if present
+                if event.get('metadata'):
+                    event['metadata'] = json.loads(event['metadata'])
+
                 # Remove internal created_at field
                 event.pop('created_at', None)
                 events.append(event)
-            
+
             return events
         except Exception as e:
             raise AOPStorageError(
@@ -282,9 +323,18 @@ class SQLiteStorage(BaseStorage):
             if row:
                 event = dict(row)
                 event['data'] = json.loads(event['data'])
+
+                # Reconstruct error field if present
+                if event.get('error'):
+                    event['error'] = json.loads(event['error'])
+
+                # Reconstruct metadata field if present
+                if event.get('metadata'):
+                    event['metadata'] = json.loads(event['metadata'])
+
                 event.pop('created_at', None)
                 return event
-            
+
             return None
         except Exception as e:
             raise AOPStorageError(

@@ -179,6 +179,162 @@ class TestMCPAdapter:
         assert len(events) == 2
         assert all(e['correlation_id'] == correlation_id for e in events)
 
+    def test_observe_tool_decorator_async(self, client):
+        """Test observe_tool decorator with async function"""
+
+        # Define async function with decorator
+        @client.mcp.observe_tool(agent_id='test-agent')
+        async def async_search(query: str, limit: int = 10) -> dict:
+            """Async search function"""
+            return {'query': query, 'results': [], 'limit': limit}
+
+        # Call the decorated function
+        import asyncio
+        result = asyncio.run(async_search('test query', limit=20))
+
+        # Verify result is returned correctly
+        assert result == {'query': 'test query', 'results': [], 'limit': 20}
+
+        # Verify events were logged
+        events = client.query(agent_id='test-agent')
+        assert len(events) == 2
+
+        # Verify call event
+        call_event = next(e for e in events if e['event_type'] == 'mcp.tool.called')
+        assert call_event['data']['tool_name'] == 'async_search'
+        assert call_event['data']['params']['query'] == 'test query'
+        assert call_event['data']['params']['limit'] == 20
+
+        # Verify completion event
+        result_event = next(e for e in events if e['event_type'] == 'mcp.tool.completed')
+        assert result_event['data']['tool_name'] == 'async_search'
+        assert result_event['data']['result'] == result
+        assert result_event['parent_id'] == call_event['id']
+        assert result_event['duration_ms'] is not None
+        assert result_event['duration_ms'] >= 0
+
+    def test_observe_tool_decorator_sync(self, client):
+        """Test observe_tool decorator with sync function"""
+
+        # Define sync function with decorator
+        @client.mcp.observe_tool(agent_id='test-agent')
+        def sync_calculator(a: int, b: int, operation: str = 'add') -> int:
+            """Sync calculator function"""
+            if operation == 'add':
+                return a + b
+            elif operation == 'multiply':
+                return a * b
+            return 0
+
+        # Call the decorated function
+        result = sync_calculator(5, 3, operation='multiply')
+
+        # Verify result is correct
+        assert result == 15
+
+        # Verify events were logged
+        events = client.query(agent_id='test-agent')
+        assert len(events) == 2
+
+        # Verify call event
+        call_event = next(e for e in events if e['event_type'] == 'mcp.tool.called')
+        assert call_event['data']['tool_name'] == 'sync_calculator'
+        assert call_event['data']['params']['a'] == 5
+        assert call_event['data']['params']['b'] == 3
+        assert call_event['data']['params']['operation'] == 'multiply'
+
+        # Verify completion event
+        result_event = next(e for e in events if e['event_type'] == 'mcp.tool.completed')
+        assert result_event['data']['result'] == 15
+        assert result_event['parent_id'] == call_event['id']
+        assert result_event['duration_ms'] is not None
+
+    def test_observe_tool_decorator_error_handling_async(self, client):
+        """Test observe_tool decorator error handling with async function"""
+
+        @client.mcp.observe_tool(agent_id='test-agent')
+        async def failing_async_tool(should_fail: bool) -> str:
+            """Tool that can fail"""
+            if should_fail:
+                raise ValueError('Intentional failure')
+            return 'success'
+
+        # Call with error
+        import asyncio
+        with pytest.raises(ValueError, match='Intentional failure'):
+            asyncio.run(failing_async_tool(should_fail=True))
+
+        # Verify events were logged
+        events = client.query(agent_id='test-agent')
+        assert len(events) == 2
+
+        # Verify call event
+        call_event = next(e for e in events if e['event_type'] == 'mcp.tool.called')
+        assert call_event['data']['params']['should_fail'] is True
+
+        # Verify error event
+        error_event = next(e for e in events if e['event_type'] == 'mcp.tool.error')
+        assert error_event['error']['code'] == 'ValueError'
+        assert 'Intentional failure' in error_event['error']['message']
+        assert error_event['parent_id'] == call_event['id']
+
+    def test_observe_tool_decorator_error_handling_sync(self, client):
+        """Test observe_tool decorator error handling with sync function"""
+
+        @client.mcp.observe_tool(agent_id='test-agent')
+        def failing_sync_tool(divisor: int) -> float:
+            """Tool that can fail"""
+            return 100 / divisor
+
+        # Call with error
+        with pytest.raises(ZeroDivisionError):
+            failing_sync_tool(0)
+
+        # Verify events were logged
+        events = client.query(agent_id='test-agent')
+        assert len(events) == 2
+
+        # Verify call event
+        call_event = next(e for e in events if e['event_type'] == 'mcp.tool.called')
+        assert call_event['data']['params']['divisor'] == 0
+
+        # Verify error event
+        error_event = next(e for e in events if e['event_type'] == 'mcp.tool.error')
+        assert error_event['error']['code'] == 'ZeroDivisionError'
+        assert error_event['parent_id'] == call_event['id']
+
+    def test_observe_tool_decorator_with_metadata(self, client):
+        """Test observe_tool decorator with custom metadata"""
+
+        @client.mcp.observe_tool(
+            agent_id='test-agent',
+            metadata={'version': '1.0', 'environment': 'test'}
+        )
+        def tool_with_metadata(value: str) -> str:
+            return value.upper()
+
+        result = tool_with_metadata('hello')
+
+        assert result == 'HELLO'
+
+        # Verify metadata is logged
+        events = client.query(agent_id='test-agent')
+        call_event = next(e for e in events if e['event_type'] == 'mcp.tool.called')
+        assert call_event['metadata']['version'] == '1.0'
+        assert call_event['metadata']['environment'] == 'test'
+
+    def test_observe_tool_decorator_preserves_function_metadata(self, client):
+        """Test that decorator preserves function name and docstring"""
+
+        @client.mcp.observe_tool(agent_id='test-agent')
+        def documented_tool(x: int) -> int:
+            """This is a documented tool."""
+            return x * 2
+
+        # Verify function metadata is preserved
+        assert documented_tool.__name__ == 'documented_tool'
+        assert documented_tool.__doc__ == 'This is a documented tool.'
+
 
 class TestA2AAdapter:
     """Test A2A protocol adapter"""

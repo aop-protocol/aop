@@ -109,6 +109,32 @@ from .adapters.ap2 import AP2Adapter
 from .trace import trace_context
 
 # ============================================================================
+# ANALYTICS
+# ============================================================================
+
+from .analytics import Analytics
+
+# ============================================================================
+# EXPORTERS
+# ============================================================================
+
+from .exporters import (
+    BaseExporter,
+    JSONExporter,
+    CSVExporter,
+    register_exporter,
+    get_exporter,
+    list_exporters
+)
+
+# Try to import optional exporters
+try:
+    from .exporters import OpenTelemetryExporter, PrometheusExporterServer
+except ImportError:
+    OpenTelemetryExporter = None  # type: ignore
+    PrometheusExporterServer = None  # type: ignore
+
+# ============================================================================
 # PUBLIC API
 # ============================================================================
 
@@ -162,7 +188,20 @@ __all__ = [
 
     # Adapters
     'MCPAdapter',
-    'A2AAdapter', 
+    'A2AAdapter',
     'AP2Adapter',
     'trace_context',
+
+    # Analytics
+    'Analytics',
+    
+    # Exporters
+    'BaseExporter',
+    'JSONExporter',
+    'CSVExporter',
+    'OpenTelemetryExporter',
+    'PrometheusExporterServer',
+    'register_exporter',
+    'get_exporter',
+    'list_exporters',
 ]

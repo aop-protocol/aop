@@ -246,17 +246,26 @@ htmlcov/
 .tox/
 
 # AOP specific
+*.db
 *.aop.db
 *.aop.db-journal
 .aop/
 logs/
+data/*.db
+*.toon
+*_export_*.json
+*_export_*.csv
+*_export_*.toon
+*_otel_*.json
+*_metrics_*.txt
+
+# Landing page (separate project)
+landing-page/
 
 # OS
 .DS_Store
 Thumbs.db
 
-:memory:
+# Logs
 *.log
-
-./SQLITE:
 

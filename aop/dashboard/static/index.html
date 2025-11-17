@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AOP Dashboard</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Chart.js for analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Smooth transitions */
+        * {
+            transition: all 0.2s ease;
+        }
+
+        /* Modern card hover effect */
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Pulse animation for live indicator */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        /* Active tab indicator */
+        .tab-active {
+            border-bottom: 3px solid #3b82f6;
+            color: #3b82f6;
+            font-weight: 600;
+        }
+
+        /* Event type badges */
+        .badge-called { background: #dbeafe; color: #1e40af; }
+        .badge-completed { background: #d1fae5; color: #065f46; }
+        .badge-error { background: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans antialiased">
+
+    <!-- Navigation Header -->
+    <nav class="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                        <span class="text-white text-xl font-bold">A</span>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-900">AOP Dashboard</h1>
+                        <p class="text-xs text-gray-500">Agentic Observability Protocol</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-4">
+                    <!-- Live indicator -->
+                    <div class="flex items-center space-x-2 px-3 py-1.5 bg-green-50 rounded-full">
+                        <div class="w-2 h-2 bg-green-500 rounded-full pulse"></div>
+                        <span class="text-sm font-medium text-green-700">Live</span>
+                    </div>
+
+                    <!-- Export dropdown -->
+                    <div class="relative">
+                        <button onclick="toggleExportMenu()" id="exportButton" class="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                            <span>📥 Export</span>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div id="exportMenu" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                            <div class="py-1">
+                                <button onclick="exportData('json')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
+                                    <span>📄</span>
+                                    <div>
+                                        <div class="font-medium">JSON</div>
+                                        <div class="text-xs text-gray-500">Pretty-printed format</div>
+                                    </div>
+                                </button>
+                                <button onclick="exportData('csv')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
+                                    <span>📊</span>
+                                    <div>
+                                        <div class="font-medium">CSV</div>
+                                        <div class="text-xs text-gray-500">Spreadsheet format</div>
+                                    </div>
+                                </button>
+                                <button onclick="exportData('toon')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
+                                    <span>🤖</span>
+                                    <div>
+                                        <div class="font-medium">TOON</div>
+                                        <div class="text-xs text-gray-500">LLM-optimized (30-60% fewer tokens)</div>
+                                    </div>
+                                </button>
+                                <div class="border-t border-gray-200 my-1"></div>
+                                <button onclick="exportData('otel')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
+                                    <span>🔭</span>
+                                    <div>
+                                        <div class="font-medium">OpenTelemetry</div>
+                                        <div class="text-xs text-gray-500">OTLP spans format</div>
+                                    </div>
+                                </button>
+                                <button onclick="exportData('prometheus')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3">
+                                    <span>📈</span>
+                                    <div>
+                                        <div class="font-medium">Prometheus</div>
+                                        <div class="text-xs text-gray-500">Metrics snapshot</div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Agent selector -->
+                    <select id="agentSelect" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                        <option value="">All Agents</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="pt-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Tabs -->
+        <div class="flex space-x-8 border-b border-gray-200 mb-6">
+            <button onclick="switchTab('feed')" id="tab-feed" class="tab-active px-4 py-3 text-sm font-medium text-gray-700 hover:text-blue-600">
+                📊 Live Feed
+            </button>
+            <button onclick="switchTab('trace')" id="tab-trace" class="px-4 py-3 text-sm font-medium text-gray-700 hover:text-blue-600">
+                🔍 Trace Explorer
+            </button>
+            <button onclick="switchTab('analytics')" id="tab-analytics" class="px-4 py-3 text-sm font-medium text-gray-700 hover:text-blue-600">
+                📈 Analytics
+            </button>
+        </div>
+
+        <!-- Tab Content -->
+
+        <!-- Live Feed Tab -->
+        <div id="content-feed" class="tab-content">
+            <div class="grid grid-cols-1 gap-4" id="eventsList">
+                <!-- Events will be loaded here -->
+                <div class="text-center py-12 text-gray-400">
+                    <div class="text-4xl mb-3">📡</div>
+                    <p class="text-sm">Loading events...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trace Explorer Tab -->
+        <div id="content-trace" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Correlation ID</label>
+                    <div class="flex space-x-3">
+                        <input type="text" id="traceInput" placeholder="Enter correlation ID..."
+                               class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <button onclick="loadTrace()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                            Load Trace
+                        </button>
+                    </div>
+                </div>
+                <div id="traceContent" class="text-center py-12 text-gray-400">
+                    <div class="text-4xl mb-3">🔍</div>
+                    <p class="text-sm">Enter a correlation ID to visualize the trace</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div id="content-analytics" class="tab-content hidden">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <!-- Stats cards -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Total Events</p>
+                            <p class="text-3xl font-bold text-gray-900" id="stat-total">-</p>
+                        </div>
+                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center text-2xl">
+                            📊
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Avg Duration</p>
+                            <p class="text-3xl font-bold text-gray-900" id="stat-duration">-</p>
+                        </div>
+                        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center text-2xl">
+                            ⚡
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Error Rate</p>
+                            <p class="text-3xl font-bold text-gray-900" id="stat-errors">-</p>
+                        </div>
+                        <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center text-2xl">
+                            ⚠️
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Tool Usage</h3>
+                    <canvas id="chartTools"></canvas>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Average Duration</h3>
+                    <canvas id="chartDuration"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let currentAgent = '';
+        let ws = null;
+        let chartsInitialized = false;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAgents();
+            loadEvents();
+            setupWebSocket();
+
+            // Set up agent selector change handler
+            document.getElementById('agentSelect').addEventListener('change', (e) => {
+                currentAgent = e.target.value;
+                loadEvents();
+                if (document.getElementById('content-analytics').classList.contains('hidden') === false) {
+                    loadAnalytics();
+                }
+            });
+        });
+
+        // Tab switching
+        function switchTab(tab) {
+            // Update tab buttons
+            document.querySelectorAll('[id^="tab-"]').forEach(btn => {
+                btn.classList.remove('tab-active');
+            });
+            document.getElementById(`tab-${tab}`).classList.add('tab-active');
+
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(`content-${tab}`).classList.remove('hidden');
+
+            // Load data for tab
+            if (tab === 'analytics') {
+                loadAnalytics();
+            }
+        }
+
+        // Load agents
+        async function loadAgents() {
+            try {
+                const res = await fetch('/api/agents');
+                const agents = await res.json();
+                const select = document.getElementById('agentSelect');
+                agents.forEach(agent => {
+                    const option = document.createElement('option');
+                    option.value = agent;
+                    option.textContent = agent;
+                    select.appendChild(option);
+                });
+            } catch (err) {
+                console.error('Failed to load agents:', err);
+            }
+        }
+
+        // Load events
+        async function loadEvents() {
+            try {
+                const url = currentAgent ? `/api/events?agent_id=${currentAgent}&limit=20` : '/api/events?limit=20';
+                const res = await fetch(url);
+                const events = await res.json();
+                renderEvents(events);
+            } catch (err) {
+                console.error('Failed to load events:', err);
+            }
+        }
+
+        // Render events
+        function renderEvents(events) {
+            const container = document.getElementById('eventsList');
+            if (!events || events.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-400">
+                        <div class="text-4xl mb-3">📭</div>
+                        <p class="text-sm">No events found</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = events.map(event => {
+                const eventType = event.event_type.split('.').pop();
+                const badgeClass = eventType === 'called' ? 'badge-called' :
+                                   eventType === 'completed' ? 'badge-completed' : 'badge-error';
+
+                const duration = event.duration_ms ? `${event.duration_ms}ms` : '-';
+                const toolName = event.data?.tool_name || 'N/A';
+
+                return `
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 card-hover cursor-pointer" onclick="showEventDetails('${event.id}')">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center space-x-3 mb-2">
+                                    <span class="px-2.5 py-0.5 text-xs font-medium rounded-full ${badgeClass}">
+                                        ${eventType}
+                                    </span>
+                                    <span class="text-sm font-medium text-gray-900">${toolName}</span>
+                                    <span class="text-xs text-gray-500">${duration}</span>
+                                </div>
+                                <div class="flex items-center space-x-4 text-xs text-gray-500">
+                                    <span>🏷️ ${event.agent_id}</span>
+                                    <span>🕐 ${new Date(event.timestamp).toLocaleTimeString()}</span>
+                                    ${event.correlation_id ? `<span class="font-mono text-xs">📎 ${event.correlation_id.substring(0, 8)}...</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Load trace
+        async function loadTrace() {
+            const correlationId = document.getElementById('traceInput').value.trim();
+            if (!correlationId) return;
+
+            try {
+                const res = await fetch(`/api/traces/${correlationId}`);
+                if (!res.ok) {
+                    document.getElementById('traceContent').innerHTML = `
+                        <div class="text-center py-12 text-gray-400">
+                            <div class="text-4xl mb-3">❌</div>
+                            <p class="text-sm">Trace not found</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const trace = await res.json();
+                renderTrace(trace);
+            } catch (err) {
+                console.error('Failed to load trace:', err);
+            }
+        }
+
+        // Render trace
+        function renderTrace(trace) {
+            const container = document.getElementById('traceContent');
+
+            container.innerHTML = `
+                <div class="text-left">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                        <div class="grid grid-cols-3 gap-4 text-sm">
+                            <div>
+                                <p class="text-gray-600">Total Events</p>
+                                <p class="text-2xl font-bold text-blue-600">${trace.event_count}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-600">Duration</p>
+                                <p class="text-2xl font-bold text-blue-600">${trace.total_duration_ms}ms</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-600">Errors</p>
+                                <p class="text-2xl font-bold text-${trace.error_count > 0 ? 'red' : 'green'}-600">${trace.error_count}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        ${renderTraceTree(trace.children || [], 0)}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render trace tree
+        function renderTraceTree(children, level) {
+            return children.map(node => {
+                const indent = level * 24;
+                const event = node.event;
+                const eventType = event.event_type.split('.').pop();
+                const badgeClass = eventType === 'called' ? 'badge-called' :
+                                   eventType === 'completed' ? 'badge-completed' : 'badge-error';
+                const duration = event.duration_ms ? `${event.duration_ms}ms` : '';
+
+                return `
+                    <div style="margin-left: ${indent}px">
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 inline-flex items-center space-x-3">
+                            <span class="px-2 py-0.5 text-xs font-medium rounded-full ${badgeClass}">${eventType}</span>
+                            <span class="text-sm font-medium">${event.data?.tool_name || 'Unknown'}</span>
+                            ${duration ? `<span class="text-xs text-gray-500">${duration}</span>` : ''}
+                        </div>
+                        ${node.children && node.children.length > 0 ? renderTraceTree(node.children, level + 1) : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Load analytics
+        async function loadAnalytics() {
+            if (!currentAgent) {
+                // Select first agent if none selected
+                const select = document.getElementById('agentSelect');
+                if (select.options.length > 1) {
+                    currentAgent = select.options[1].value;
+                    select.value = currentAgent;
+                } else {
+                    return;
+                }
+            }
+
+            try {
+                const res = await fetch(`/api/stats?agent_id=${currentAgent}`);
+                const stats = await res.json();
+
+                // Update stat cards
+                const totalEvents = Object.values(stats.event_counts || {}).reduce((a, b) => a + b, 0);
+                document.getElementById('stat-total').textContent = totalEvents;
+
+                const avgDurations = Object.values(stats.avg_durations || {});
+                const avgDuration = avgDurations.length > 0 ?
+                    Math.round(avgDurations.reduce((a, b) => a + b, 0) / avgDurations.length) : 0;
+                document.getElementById('stat-duration').textContent = `${avgDuration}ms`;
+
+                const errorCount = stats.event_counts['mcp.tool.error'] || 0;
+                const errorRate = totalEvents > 0 ? ((errorCount / totalEvents) * 100).toFixed(1) : 0;
+                document.getElementById('stat-errors').textContent = `${errorRate}%`;
+
+                // Render charts
+                renderCharts(stats);
+            } catch (err) {
+                console.error('Failed to load analytics:', err);
+            }
+        }
+
+        // Render charts
+        function renderCharts(stats) {
+            // Tool usage chart
+            const toolLabels = Object.keys(stats.tool_counts || {});
+            const toolData = Object.values(stats.tool_counts || {});
+
+            const ctxTools = document.getElementById('chartTools').getContext('2d');
+            if (window.chartTools && typeof window.chartTools.destroy === 'function') {
+                window.chartTools.destroy();
+            }
+            window.chartTools = new Chart(ctxTools, {
+                type: 'bar',
+                data: {
+                    labels: toolLabels,
+                    datasets: [{
+                        label: 'Calls',
+                        data: toolData,
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            // Duration chart
+            const durationLabels = Object.keys(stats.avg_durations || {});
+            const durationData = Object.values(stats.avg_durations || {});
+
+            const ctxDuration = document.getElementById('chartDuration').getContext('2d');
+            if (window.chartDuration && typeof window.chartDuration.destroy === 'function') {
+                window.chartDuration.destroy();
+            }
+            window.chartDuration = new Chart(ctxDuration, {
+                type: 'bar',
+                data: {
+                    labels: durationLabels,
+                    datasets: [{
+                        label: 'Avg Duration (ms)',
+                        data: durationData,
+                        backgroundColor: '#10b981',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+
+        // WebSocket for real-time updates
+        function setupWebSocket() {
+            // WebSocket implementation would go here
+            // For now, we'll use polling
+            setInterval(() => {
+                if (!document.getElementById('content-feed').classList.contains('hidden')) {
+                    loadEvents();
+                }
+            }, 5000);
+        }
+
+        // Show event details (placeholder)
+        function showEventDetails(eventId) {
+            // Future: Show modal with full event details
+            console.log('Event:', eventId);
+        }
+
+        // Export functionality
+        function toggleExportMenu() {
+            const menu = document.getElementById('exportMenu');
+            menu.classList.toggle('hidden');
+        }
+
+        // Close export menu when clicking outside
+        document.addEventListener('click', (e) => {
+            const exportButton = document.getElementById('exportButton');
+            const exportMenu = document.getElementById('exportMenu');
+
+            if (exportButton && exportMenu && !exportButton.contains(e.target) && !exportMenu.contains(e.target)) {
+                exportMenu.classList.add('hidden');
+            }
+        });
+
+        // Export data function
+        async function exportData(format) {
+            // Close menu
+            document.getElementById('exportMenu').classList.add('hidden');
+
+            // Build export URL with current filters
+            const params = new URLSearchParams();
+
+            if (currentAgent) {
+                params.append('agent_id', currentAgent);
+            }
+
+            // Add limit
+            params.append('limit', '1000');
+
+            // Build URL based on format
+            let url = `/api/export/${format}`;
+            if (params.toString()) {
+                url += `?${params.toString()}`;
+            }
+
+            try {
+                // Show loading message
+                showToast(`Exporting as ${format.toUpperCase()}...`, 'info');
+
+                // Fetch the export
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Export failed');
+                }
+
+                // Get filename from Content-Disposition header or generate one
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = `aop_export_${format}_${Date.now()}`;
+
+                if (contentDisposition) {
+                    const matches = /filename=([^;]+)/.exec(contentDisposition);
+                    if (matches && matches[1]) {
+                        filename = matches[1].replace(/"/g, '');
+                    }
+                }
+
+                // Get blob and create download link
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(downloadUrl);
+                document.body.removeChild(a);
+
+                // Check for token savings header (TOON format)
+                const tokenSavings = response.headers.get('X-Token-Savings');
+                if (tokenSavings) {
+                    showToast(`✓ Exported! Token savings: ${tokenSavings}%`, 'success');
+                } else {
+                    showToast(`✓ Exported successfully as ${format.toUpperCase()}`, 'success');
+                }
+
+            } catch (error) {
+                console.error('Export failed:', error);
+                showToast(`Export failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Toast notification function
+        function showToast(message, type = 'info') {
+            // Remove existing toasts
+            const existingToast = document.getElementById('toast');
+            if (existingToast) {
+                existingToast.remove();
+            }
+
+            // Create toast
+            const toast = document.createElement('div');
+            toast.id = 'toast';
+            toast.className = 'fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white font-medium z-50 animate-slide-up';
+
+            // Set color based on type
+            if (type === 'success') {
+                toast.className += ' bg-green-600';
+            } else if (type === 'error') {
+                toast.className += ' bg-red-600';
+            } else {
+                toast.className += ' bg-blue-600';
+            }
+
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            // Remove after 3 seconds
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+
+    <style>
+        /* Toast animation */
+        @keyframes slide-up {
+            from {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        .animate-slide-up {
+            animation: slide-up 0.3s ease-out;
+        }
+    </style>
+
+</body>
+</html>
