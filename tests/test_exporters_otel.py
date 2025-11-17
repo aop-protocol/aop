@@ -8,8 +8,11 @@ import pytest
 
 # Check if OTEL is available
 try:
-    from aop.exporters import OpenTelemetryExporter
-    OTEL_AVAILABLE = True
+    from aop.exporters.otel import OTEL_AVAILABLE
+    if OTEL_AVAILABLE:
+        from aop.exporters import OpenTelemetryExporter
+    else:
+        OpenTelemetryExporter = None
 except ImportError:
     OTEL_AVAILABLE = False
     OpenTelemetryExporter = None

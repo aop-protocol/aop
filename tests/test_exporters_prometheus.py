@@ -10,8 +10,12 @@ import threading
 
 # Check if Prometheus is available
 try:
-    from aop.exporters import PrometheusExporterServer, PrometheusExporter
-    PROMETHEUS_AVAILABLE = True
+    from aop.exporters.prometheus import PROMETHEUS_AVAILABLE
+    if PROMETHEUS_AVAILABLE:
+        from aop.exporters import PrometheusExporterServer, PrometheusExporter
+    else:
+        PrometheusExporterServer = None
+        PrometheusExporter = None
 except ImportError:
     PROMETHEUS_AVAILABLE = False
     PrometheusExporterServer = None
