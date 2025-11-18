@@ -120,7 +120,7 @@ export default function Hero() {
           </a>
           <span className="text-aop-mint/30">|</span>
           <a
-            href="https://linkedin.com/in/ajitsingh"
+            href="https://linkedin.com/in/itsmeajit"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 text-aop-mint/70 hover:text-aop-indigo transition-colors group"

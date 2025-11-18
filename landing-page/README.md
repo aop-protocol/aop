@@ -208,8 +208,8 @@ MIT License - see main [LICENSE](../LICENSE) file for details.
 
 **Ajit Singh**
 - Email: asing349@ucr.edu
-- LinkedIn: [linkedin.com/in/ajitsingh](https://linkedin.com/in/ajitsingh)
-- GitHub: [github.com/ajitsingh](https://github.com/ajitsingh)
+- LinkedIn: [linkedin.com/in/itsmeajit](https://linkedin.com/in/itsmeajit)
+- GitHub: [github.com/asing349](https://github.com/asing349)
 
 ---
 
