@@ -123,20 +123,14 @@ export default function FeaturesScroll() {
                 className="feature-card flex-shrink-0 w-[500px] group"
               >
                 <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden hover:shadow-2xl transition-shadow h-full flex flex-col">
-                  {/* Screenshot Placeholder */}
+                  {/* Screenshot */}
                   <div className={`relative h-64 bg-gradient-to-br ${feature.color} flex items-center justify-center overflow-hidden`}>
-                    {/* Placeholder - replace with actual Image component when screenshots are ready */}
-                    <div className="absolute inset-0 bg-aop-charcoal/10 flex items-center justify-center">
-                      <Icon className="w-24 h-24 text-white/30" />
-                    </div>
-                    {/* Uncomment when screenshots are available:
                     <Image
                       src={feature.screenshot}
                       alt={feature.title}
                       fill
                       className="object-cover"
                     />
-                    */}
                   </div>
 
                   {/* Content */}

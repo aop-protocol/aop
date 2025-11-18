@@ -98,26 +98,24 @@ export default function LiveDemo() {
         <div className="grid lg:grid-cols-2 gap-12 items-start">
           {/* Left: Video */}
           <div className="demo-item opacity-0">
-            <div className="relative aspect-video bg-aop-charcoal/50 rounded-2xl border-2 border-aop-turquoise/30 overflow-hidden group hover:border-aop-turquoise/60 transition-colors">
-              {/* YouTube Placeholder */}
-              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-aop-indigo/20 to-aop-purple/20">
-                <div className="text-center">
-                  <div className="inline-flex items-center justify-center w-20 h-20 bg-aop-turquoise/20 rounded-full mb-4 group-hover:scale-110 transition-transform">
-                    <Play className="w-10 h-10 text-aop-turquoise ml-1" />
-                  </div>
-                  <p className="text-aop-mint font-medium">Watch Demo Video</p>
-                  <p className="text-sm text-gray-400 mt-2">
-                    AOP in 3 Minutes
-                  </p>
+            <div className="relative aspect-video bg-gradient-to-br from-aop-indigo/10 to-aop-purple/10 rounded-2xl border-2 border-aop-turquoise/30 overflow-hidden flex items-center justify-center">
+              <div className="text-center px-6">
+                <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-aop-turquoise/20 to-aop-mint/20 rounded-full mb-6">
+                  <Play className="w-12 h-12 text-aop-turquoise" />
                 </div>
+                <h3 className="text-3xl font-bold text-white mb-3">
+                  Coming Soon
+                </h3>
+                <p className="text-aop-mint font-medium text-lg mb-2">Demo Video</p>
+                <p className="text-sm text-gray-400 max-w-sm mx-auto">
+                  Watch a complete walkthrough of AOP in action
+                </p>
               </div>
-              {/* Replace with actual YouTube embed when ready */}
-              {/* <iframe src="https://www.youtube.com/embed/VIDEO_ID" /> */}
             </div>
 
             {/* Video Caption */}
             <p className="text-center text-sm text-gray-400 mt-4">
-              Complete walkthrough: Installation → Integration → Insights
+              Installation → Integration → Real-time Insights
             </p>
           </div>
 

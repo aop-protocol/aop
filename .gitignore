@@ -260,6 +260,11 @@ data/*.db
 *_metrics_*.txt
 
 # Landing page (separate project)
+# Don't ignore landing page source files
+!landing-page/src/
+!landing-page/src/lib/
+!landing-page/public/
+!landing-page/public/**
 
 # OS
 .DS_Store
