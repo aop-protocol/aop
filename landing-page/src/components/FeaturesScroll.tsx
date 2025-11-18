@@ -1,17 +1,38 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { horizontalScroll } from '@/lib/animations'
 import { LayoutDashboard, GitBranch, LineChart, Terminal } from 'lucide-react'
 import Image from 'next/image'
 
 export default function FeaturesScroll() {
   const containerRef = useRef<HTMLDivElement>(null)
+  const [scrollProgress, setScrollProgress] = useState(0)
 
   useEffect(() => {
     if (containerRef.current) {
       const items = containerRef.current.querySelectorAll('.feature-card')
       horizontalScroll(containerRef.current, items)
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (containerRef.current) {
+        const container = containerRef.current.querySelector('.flex') as HTMLElement
+        if (container) {
+          const scrollLeft = container.scrollLeft
+          const scrollWidth = container.scrollWidth - container.clientWidth
+          const progress = (scrollLeft / scrollWidth) * 100
+          setScrollProgress(progress)
+        }
+      }
+    }
+
+    const container = containerRef.current?.querySelector('.flex')
+    if (container) {
+      container.addEventListener('scroll', handleScroll)
+      return () => container.removeEventListener('scroll', handleScroll)
     }
   }, [])
 
@@ -32,14 +53,14 @@ export default function FeaturesScroll() {
     },
     {
       icon: GitBranch,
-      title: 'Trace Visualization',
+      title: 'Trace Explorer - 3 Search Methods',
       description:
-        'Interactive tree view of distributed traces showing parent-child relationships across agents.',
+        'Interactive tree view of distributed traces with multiple search methods: Correlation ID, Event ID, or Parent ID.',
       highlights: [
-        'Complete trace reconstruction',
-        'Correlation ID tracking',
-        'Multi-agent workflow visualization',
-        'Trace duration and event counts',
+        'Search by Correlation ID for planned workflows',
+        'Search by Event ID - no correlation ID needed!',
+        'Search by Parent ID for sub-operations',
+        'Complete trace reconstruction with parent-child relationships',
       ],
       screenshot: '/screenshots/trace-viz.png',
       color: 'from-aop-green to-aop-turquoise',
@@ -60,14 +81,14 @@ export default function FeaturesScroll() {
     },
     {
       icon: Terminal,
-      title: 'CLI Tools',
+      title: 'CLI & Export Tools',
       description:
-        'Powerful command-line interface for querying, exporting, and monitoring.',
+        'Powerful command-line interface for querying, exporting to 5 formats, and monitoring.',
       highlights: [
-        'Query events with filters',
-        'Export to JSON, CSV, OpenTelemetry',
-        'Prometheus metrics server',
-        'Interactive trace viewer',
+        'Query events with rich filters',
+        'Export to JSON, CSV, TOON (30-60% token savings)',
+        'OpenTelemetry and Prometheus export',
+        'Interactive trace viewer and analytics',
       ],
       screenshot: '/screenshots/cli.png',
       color: 'from-aop-purple to-aop-red',
@@ -149,9 +170,15 @@ export default function FeaturesScroll() {
           })}
         </div>
 
-        {/* Scroll Indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 text-sm text-aop-gray">
-          <span>Scroll to explore →</span>
+        {/* Scroll Progress Indicator */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
+          <div className="w-48 h-1 bg-gray-300 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-aop-turquoise to-aop-purple transition-all duration-300"
+              style={{ width: `${scrollProgress}%` }}
+            />
+          </div>
+          <span className="text-sm text-aop-gray">Scroll</span>
         </div>
       </div>
     </section>

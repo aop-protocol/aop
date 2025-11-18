@@ -30,12 +30,14 @@ export default function UpcomingFeatures() {
     },
     {
       icon: Package,
-      title: 'MCP Packages',
-      description: 'Pre-built observability for popular MCP servers and tool packages',
-      status: 'Q1 2025',
+      title: 'AI Agentic Tool Call & MCP',
+      description: 'Pre-built observability for AI agent tool calls and MCP server integration',
+      status: 'v0.1.0 Alpha',
       color: 'text-aop-green',
       bgColor: 'bg-aop-green/10',
       borderColor: 'border-aop-green/20',
+      badge: 'Available Now',
+      badgeColor: 'bg-aop-green text-white',
     },
     {
       icon: Users,

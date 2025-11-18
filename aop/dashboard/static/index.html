@@ -59,6 +59,43 @@
         .badge-called { background: #dbeafe; color: #1e40af; }
         .badge-completed { background: #d1fae5; color: #065f46; }
         .badge-error { background: #fee2e2; color: #991b1b; }
+
+        /* Modal animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideIn {
+            from { 
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .modal-overlay {
+            animation: fadeIn 0.2s ease-out;
+        }
+        .modal-content {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        /* Toast animation */
+        @keyframes slide-up {
+            from {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        .animate-slide-up {
+            animation: slide-up 0.3s ease-out;
+        }
     </style>
 </head>
 <body class="bg-gray-50 font-sans antialiased">
@@ -248,11 +285,53 @@
         </div>
     </div>
 
+    <!-- Event Details Modal -->
+    <div id="eventModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+        <!-- Overlay -->
+        <div class="modal-overlay fixed inset-0 bg-black bg-opacity-50" onclick="closeEventModal()"></div>
+        
+        <!-- Modal Content -->
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="modal-content relative bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
+                <!-- Header -->
+                <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                    <h2 class="text-xl font-bold text-gray-900">Event Details</h2>
+                    <button onclick="closeEventModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">
+                        ×
+                    </button>
+                </div>
+
+                <!-- Content -->
+                <div id="eventModalContent" class="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+                    <!-- Event details will be loaded here -->
+                    <div class="text-center py-12 text-gray-400">
+                        <div class="text-4xl mb-3">⏳</div>
+                        <p class="text-sm">Loading event details...</p>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
+                    <button onclick="closeEventModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 font-medium">
+                        Close
+                    </button>
+                    <button onclick="copyEventToClipboard()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                        📋 Copy JSON
+                    </button>
+                    <button onclick="viewTraceForEvent()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
+                        🔍 View Full Trace
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // State
         let currentAgent = '';
         let ws = null;
         let chartsInitialized = false;
+        let currentEventData = null;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -266,6 +345,13 @@
                 loadEvents();
                 if (document.getElementById('content-analytics').classList.contains('hidden') === false) {
                     loadAnalytics();
+                }
+            });
+
+            // ESC key closes modal
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && !document.getElementById('eventModal').classList.contains('hidden')) {
+                    closeEventModal();
                 }
             });
         });
@@ -363,6 +449,255 @@
             }).join('');
         }
 
+        // Show event details in modal
+        async function showEventDetails(eventId) {
+            // Show modal
+            document.getElementById('eventModal').classList.remove('hidden');
+            
+            // Show loading state
+            document.getElementById('eventModalContent').innerHTML = `
+                <div class="text-center py-12 text-gray-400">
+                    <div class="text-4xl mb-3">⏳</div>
+                    <p class="text-sm">Loading event details...</p>
+                </div>
+            `;
+
+            try {
+                // Fetch event details
+                const res = await fetch(`/api/events/${eventId}`);
+                if (!res.ok) {
+                    throw new Error('Event not found');
+                }
+                
+                const event = await res.json();
+                currentEventData = event;
+                
+                // Render event details
+                renderEventDetails(event);
+            } catch (err) {
+                console.error('Failed to load event:', err);
+                document.getElementById('eventModalContent').innerHTML = `
+                    <div class="text-center py-12 text-red-400">
+                        <div class="text-4xl mb-3">❌</div>
+                        <p class="text-sm">Failed to load event: ${err.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Render event details
+        function renderEventDetails(event) {
+            const eventType = event.event_type.split('.').pop();
+            const badgeClass = eventType === 'called' ? 'badge-called' :
+                               eventType === 'completed' ? 'badge-completed' : 'badge-error';
+
+            const html = `
+                <div class="space-y-6">
+                    <!-- Header Info -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex items-center space-x-3 mb-3">
+                            <span class="px-3 py-1 text-sm font-medium rounded-full ${badgeClass}">
+                                ${event.event_type}
+                            </span>
+                            ${event.severity ? `<span class="px-3 py-1 text-sm font-medium rounded-full bg-gray-200 text-gray-700">${event.severity}</span>` : ''}
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <span class="text-gray-500">Event ID:</span>
+                                <span class="ml-2 font-mono text-xs">${event.id}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500">Timestamp:</span>
+                                <span class="ml-2">${new Date(event.timestamp).toLocaleString()}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Core Fields -->
+                    <div class="space-y-3">
+                        <div class="border-b pb-2">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-2">Core Information</h3>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">Agent ID</p>
+                                <p class="text-sm font-medium text-gray-900">${event.agent_id}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">Instance ID</p>
+                                <p class="text-sm font-medium text-gray-900 font-mono text-xs">${event.instance_id || 'N/A'}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">Protocol</p>
+                                <p class="text-sm font-medium text-gray-900">${event.protocol}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">Version</p>
+                                <p class="text-sm font-medium text-gray-900">${event.version}</p>
+                            </div>
+                        </div>
+
+                        ${event.duration_ms ? `
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">Duration</p>
+                                <p class="text-sm font-medium text-gray-900">${event.duration_ms}ms</p>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- Tracing Fields -->
+                    ${event.correlation_id || event.parent_id || event.session_id ? `
+                        <div class="space-y-3">
+                            <div class="border-b pb-2">
+                                <h3 class="text-sm font-semibold text-gray-700 mb-2">Distributed Tracing</h3>
+                            </div>
+                            
+                            ${event.correlation_id ? `
+                                <div>
+                                    <p class="text-xs text-gray-500 mb-1">Correlation ID</p>
+                                    <div class="flex items-center space-x-2">
+                                        <p class="text-sm font-medium text-gray-900 font-mono text-xs">${event.correlation_id}</p>
+                                        <button onclick="loadTraceById('${event.correlation_id}')" class="text-xs text-blue-600 hover:text-blue-800">View Trace →</button>
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            ${event.parent_id ? `
+                                <div>
+                                    <p class="text-xs text-gray-500 mb-1">Parent ID</p>
+                                    <p class="text-sm font-medium text-gray-900 font-mono text-xs">${event.parent_id}</p>
+                                </div>
+                            ` : ''}
+                            
+                            ${event.session_id ? `
+                                <div>
+                                    <p class="text-xs text-gray-500 mb-1">Session ID</p>
+                                    <p class="text-sm font-medium text-gray-900 font-mono text-xs">${event.session_id}</p>
+                                </div>
+                            ` : ''}
+                        </div>
+                    ` : ''}
+
+                    <!-- Event Data -->
+                    ${event.data && Object.keys(event.data).length > 0 ? `
+                        <div class="space-y-3">
+                            <div class="border-b pb-2">
+                                <h3 class="text-sm font-semibold text-gray-700 mb-2">Event Data</h3>
+                            </div>
+                            <div class="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto">
+                                <pre class="text-xs font-mono">${JSON.stringify(event.data, null, 2)}</pre>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Error Information -->
+                    ${event.error ? `
+                        <div class="space-y-3">
+                            <div class="border-b pb-2">
+                                <h3 class="text-sm font-semibold text-red-700 mb-2">Error Information</h3>
+                            </div>
+                            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                                ${event.error.code ? `<p class="text-sm mb-2"><span class="font-semibold">Code:</span> ${event.error.code}</p>` : ''}
+                                ${event.error.message ? `<p class="text-sm mb-2"><span class="font-semibold">Message:</span> ${event.error.message}</p>` : ''}
+                                ${event.error.stack_trace ? `
+                                    <div class="mt-3">
+                                        <p class="text-xs font-semibold mb-2">Stack Trace:</p>
+                                        <pre class="text-xs bg-white p-2 rounded border border-red-200 overflow-x-auto">${event.error.stack_trace}</pre>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Metadata -->
+                    ${event.metadata && Object.keys(event.metadata).length > 0 ? `
+                        <div class="space-y-3">
+                            <div class="border-b pb-2">
+                                <h3 class="text-sm font-semibold text-gray-700 mb-2">Metadata</h3>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <pre class="text-xs font-mono text-gray-700">${JSON.stringify(event.metadata, null, 2)}</pre>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+
+            document.getElementById('eventModalContent').innerHTML = html;
+        }
+
+        // Close event modal
+        function closeEventModal() {
+            document.getElementById('eventModal').classList.add('hidden');
+            currentEventData = null;
+        }
+
+        // Copy event to clipboard
+        function copyEventToClipboard() {
+            if (!currentEventData) return;
+            
+            const json = JSON.stringify(currentEventData, null, 2);
+            navigator.clipboard.writeText(json).then(() => {
+                showToast('✓ Event JSON copied to clipboard!', 'success');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                showToast('Failed to copy to clipboard', 'error');
+            });
+        }
+
+        // View full trace for the current event
+        async function viewTraceForEvent() {
+            if (!currentEventData) return;
+            
+            const eventId = currentEventData.id;
+            
+            try {
+                // Close modal
+                closeEventModal();
+                
+                // Switch to trace tab
+                switchTab('trace');
+                
+                // Show loading
+                document.getElementById('traceContent').innerHTML = `
+                    <div class="text-center py-12 text-gray-400">
+                        <div class="text-4xl mb-3">⏳</div>
+                        <p class="text-sm">Loading trace from event...</p>
+                    </div>
+                `;
+                
+                // Fetch trace using event ID
+                const res = await fetch(`/api/traces/by-event/${eventId}`);
+                if (!res.ok) {
+                    throw new Error('Trace not found');
+                }
+                
+                const trace = await res.json();
+                renderTrace(trace);
+                
+                showToast('✓ Trace loaded successfully', 'success');
+                
+            } catch (err) {
+                console.error('Failed to load trace:', err);
+                document.getElementById('traceContent').innerHTML = `
+                    <div class="text-center py-12 text-red-400">
+                        <div class="text-4xl mb-3">⚠️</div>
+                        <p class="text-sm">Failed to load trace: ${err.message}</p>
+                    </div>
+                `;
+                showToast(`Failed to load trace: ${err.message}`, 'error');
+            }
+        }
+
+        // Load trace by ID (from event details)
+        function loadTraceById(correlationId) {
+            closeEventModal();
+            switchTab('trace');
+            document.getElementById('traceInput').value = correlationId;
+            loadTrace();
+        }
+
         // Load trace
         async function loadTrace() {
             const correlationId = document.getElementById('traceInput').value.trim();
@@ -391,6 +726,29 @@
         function renderTrace(trace) {
             const container = document.getElementById('traceContent');
 
+            // Build the tree display - need to show root + children
+            let treeHtml = '';
+            
+            if (trace.root_event) {
+                // Render root event
+                const rootEvent = trace.root_event;
+                const eventType = rootEvent.event_type.split('.').pop();
+                const badgeClass = eventType === 'called' ? 'badge-called' :
+                                   eventType === 'completed' ? 'badge-completed' : 'badge-error';
+                const duration = rootEvent.duration_ms ? `${rootEvent.duration_ms}ms` : '';
+                
+                treeHtml = `
+                    <div>
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 inline-flex items-center space-x-3 cursor-pointer hover:bg-gray-100" onclick="showEventDetails('${rootEvent.id}')">
+                            <span class="px-2 py-0.5 text-xs font-medium rounded-full ${badgeClass}">${eventType}</span>
+                            <span class="text-sm font-medium">${rootEvent.data?.tool_name || rootEvent.event_type}</span>
+                            ${duration ? `<span class="text-xs text-gray-500">${duration}</span>` : ''}
+                        </div>
+                        ${trace.children && trace.children.length > 0 ? renderTraceTree(trace.children, 1) : ''}
+                    </div>
+                `;
+            }
+
             container.innerHTML = `
                 <div class="text-left">
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -411,7 +769,7 @@
                     </div>
 
                     <div class="space-y-2">
-                        ${renderTraceTree(trace.children || [], 0)}
+                        ${treeHtml}
                     </div>
                 </div>
             `;
@@ -429,7 +787,7 @@
 
                 return `
                     <div style="margin-left: ${indent}px">
-                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 inline-flex items-center space-x-3">
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 inline-flex items-center space-x-3 cursor-pointer hover:bg-gray-100" onclick="showEventDetails('${event.id}')">
                             <span class="px-2 py-0.5 text-xs font-medium rounded-full ${badgeClass}">${eventType}</span>
                             <span class="text-sm font-medium">${event.data?.tool_name || 'Unknown'}</span>
                             ${duration ? `<span class="text-xs text-gray-500">${duration}</span>` : ''}
@@ -543,12 +901,6 @@
                     loadEvents();
                 }
             }, 5000);
-        }
-
-        // Show event details (placeholder)
-        function showEventDetails(eventId) {
-            // Future: Show modal with full event details
-            console.log('Event:', eventId);
         }
 
         // Export functionality
@@ -668,23 +1020,6 @@
             }, 3000);
         }
     </script>
-
-    <style>
-        /* Toast animation */
-        @keyframes slide-up {
-            from {
-                transform: translateY(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-        .animate-slide-up {
-            animation: slide-up 0.3s ease-out;
-        }
-    </style>
 
 </body>
 </html>

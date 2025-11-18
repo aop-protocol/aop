@@ -2,35 +2,11 @@
 
 import { useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { cycleText, parallaxFloat, fadeInUp, fadeInScale } from '@/lib/animations'
+import { fadeInUp, fadeInScale } from '@/lib/animations'
 import { Play, Github, Linkedin, Mail } from 'lucide-react'
 
 export default function Hero() {
-  const cycleRef = useRef<HTMLSpanElement>(null)
   const heroRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    // Cycling text animation
-    if (cycleRef.current) {
-      const words = ['TRANSPARENT', 'AUDITABLE', 'ACTIONABLE']
-      let currentIndex = 0
-
-      const cycle = () => {
-        if (cycleRef.current) {
-          cycleRef.current.textContent = words[currentIndex]
-          currentIndex = (currentIndex + 1) % words.length
-        }
-      }
-
-      // Initial set
-      cycle()
-
-      // Cycle every 3 seconds
-      const interval = setInterval(cycle, 3000)
-
-      return () => clearInterval(interval)
-    }
-  }, [])
 
   useEffect(() => {
     // Entrance animations
@@ -39,11 +15,6 @@ export default function Hero() {
     fadeInUp('.hero-tagline', 0.6)
     fadeInUp('.hero-cta', 0.8)
     fadeInUp('.hero-social', 1.0)
-
-    // Parallax floating shapes
-    parallaxFloat('.float-shape-1', 2, 30)
-    parallaxFloat('.float-shape-2', 3, 40)
-    parallaxFloat('.float-shape-3', 2.5, 35)
   }, [])
 
   return (
@@ -51,32 +22,68 @@ export default function Hero() {
       ref={heroRef}
       className="relative min-h-screen bg-aop-charcoal text-white flex items-center justify-center overflow-hidden"
     >
-      {/* Floating Background Shapes */}
-      <div className="float-shape-1 absolute top-20 left-10 w-64 h-64 bg-aop-turquoise/10 rounded-full blur-3xl" />
-      <div className="float-shape-2 absolute bottom-32 right-20 w-80 h-80 bg-aop-indigo/10 rounded-full blur-3xl" />
-      <div className="float-shape-3 absolute top-1/2 right-1/3 w-72 h-72 bg-aop-purple/10 rounded-full blur-3xl" />
+      {/* Animated Grid Background */}
+      <div className="absolute inset-0 opacity-10">
+        {/* Vertical lines */}
+        <div className="absolute inset-0" style={{
+          backgroundImage: `linear-gradient(90deg, rgba(58, 207, 105, 0.3) 1px, transparent 1px)`,
+          backgroundSize: '80px 80px',
+          animation: 'slideRight 30s linear infinite'
+        }} />
+        {/* Horizontal lines */}
+        <div className="absolute inset-0" style={{
+          backgroundImage: `linear-gradient(0deg, rgba(107, 213, 201, 0.3) 1px, transparent 1px)`,
+          backgroundSize: '80px 80px',
+          animation: 'slideDown 30s linear infinite'
+        }} />
+      </div>
+
+      {/* Floating particles */}
+      <div className="absolute inset-0 opacity-30">
+        {[...Array(20)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-1 h-1 bg-aop-mint rounded-full"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animation: `floatParticle ${15 + Math.random() * 10}s ease-in-out infinite`,
+              animationDelay: `${Math.random() * 5}s`
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Gradient Orbs */}
+      <div className="absolute top-20 left-10 w-96 h-96 bg-gradient-to-br from-aop-turquoise/20 to-aop-mint/10 rounded-full blur-3xl" style={{ animation: 'pulse 4s ease-in-out infinite' }} />
+      <div className="absolute bottom-20 right-10 w-96 h-96 bg-gradient-to-br from-aop-indigo/20 to-aop-purple/10 rounded-full blur-3xl" style={{ animation: 'pulse 6s ease-in-out infinite' }} />
 
       {/* Content */}
       <div className="relative z-10 max-w-6xl mx-auto px-6 text-center">
-        {/* Logo */}
-        <h1 className="hero-logo text-9xl font-bold gradient-text mb-6 opacity-0">
-          AOP
+        {/* Open Source Badge */}
+        <div className="hero-logo flex items-center justify-center gap-3 mb-6 opacity-0">
+          <div className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-aop-mint/30 flex items-center gap-2">
+            <svg className="w-5 h-5 text-aop-mint" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+            </svg>
+            <span className="text-sm font-semibold text-aop-mint">Open Source</span>
+          </div>
+        </div>
+
+        {/* Main Title */}
+        <h1 className="hero-logo text-4xl md:text-6xl font-bold mb-4 opacity-0">
+          <span className="text-white">Agentic Observability Protocol</span>
+          <span className="text-3xl md:text-5xl text-gray-400 ml-3">(AOP)</span>
         </h1>
 
-        {/* Subtitle */}
-        <p className="hero-subtitle text-2xl text-aop-mint/80 mb-8 opacity-0">
-          Agentic Observability Protocol
+        {/* Tagline */}
+        <p className="hero-subtitle text-2xl md:text-3xl text-aop-mint mb-8 opacity-0">
+          Universal AI Agent Observability
         </p>
 
-        {/* Tagline with cycling text */}
-        <p className="hero-tagline text-xl md:text-2xl text-gray-300 mb-12 max-w-4xl mx-auto opacity-0">
-          Making MCP tools and AI agents behavior{' '}
-          <span
-            ref={cycleRef}
-            className="gradient-text font-semibold inline-block min-w-[200px] text-left"
-          >
-            TRANSPARENT
-          </span>
+        {/* Supported Protocols */}
+        <p className="hero-tagline text-lg md:text-xl text-gray-300 mb-12 max-w-4xl mx-auto opacity-0">
+          Supports <span className="text-aop-turquoise font-semibold">MCP</span>, <span className="text-aop-gold font-semibold">A2A</span>, <span className="text-aop-purple font-semibold">AP2</span> and <span className="text-aop-green font-semibold">LangChain/LangGraph</span> agents
         </p>
 
         {/* CTA Buttons */}

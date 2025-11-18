@@ -13,8 +13,8 @@ export default function ImpactSection() {
     {
       icon: Eye,
       text: 'OBSERVE Every Action',
-      color: 'text-aop-turquoise',
-      bgColor: 'bg-aop-turquoise/10',
+      color: 'text-green-700',
+      bgColor: 'bg-green-700/10',
     },
     {
       icon: FileCheck,

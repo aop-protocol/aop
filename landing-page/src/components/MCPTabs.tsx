@@ -114,32 +114,34 @@ def my_tool(param: str):
         {/* Section Header */}
         <div className="text-center mb-12">
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
-            <span className="gradient-text">MCP Integration</span> <span className="text-aop-charcoal">Hub</span>
+            <span className="gradient-text">Framework Integration</span> <span className="text-aop-charcoal">Hub</span>
           </h2>
           <p className="text-xl text-aop-charcoal/90 max-w-3xl mx-auto">
-            Everything you need to add observability to Model Context Protocol tools
+            Works with MCP, LangChain, CrewAI, and custom agents - everything you need for universal observability
           </p>
         </div>
 
-        {/* Tabs Navigation */}
-        <div className="flex flex-wrap justify-center gap-3 mb-12">
-          {tabs.map((tab, index) => {
-            const Icon = tab.icon
-            return (
-              <button
-                key={index}
-                onClick={() => setActiveTab(index)}
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all duration-300 ${
-                  activeTab === index
-                    ? 'bg-aop-green text-white shadow-lg scale-105'
-                    : 'bg-white text-aop-charcoal hover:bg-aop-mint/20 border border-aop-mint'
-                }`}
-              >
-                <Icon className="w-5 h-5" />
-                {tab.label}
-              </button>
-            )
-          })}
+        {/* Tabs Navigation - Unified Bar */}
+        <div className="flex justify-center mb-12">
+          <div className="inline-flex bg-white rounded-full p-1.5 shadow-lg border border-aop-mint/20">
+            {tabs.map((tab, index) => {
+              const Icon = tab.icon
+              return (
+                <button
+                  key={index}
+                  onClick={() => setActiveTab(index)}
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all duration-300 ${
+                    activeTab === index
+                      ? 'bg-aop-green text-white shadow-md'
+                      : 'text-aop-charcoal hover:bg-aop-mint/10'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="text-sm">{tab.label}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {/* Tab Content */}

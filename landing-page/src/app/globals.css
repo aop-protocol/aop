@@ -91,6 +91,67 @@
     animation: gradient-shift 8s ease infinite;
   }
 
+  @keyframes gradient-shift {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px) translateX(0px);
+    }
+    25% {
+      transform: translateY(-10px) translateX(5px);
+    }
+    50% {
+      transform: translateY(-5px) translateX(10px);
+    }
+    75% {
+      transform: translateY(-15px) translateX(5px);
+    }
+  }
+
+  @keyframes slideRight {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(80px);
+    }
+  }
+
+  @keyframes slideDown {
+    0% {
+      transform: translateY(0);
+    }
+    100% {
+      transform: translateY(80px);
+    }
+  }
+
+  @keyframes floatParticle {
+    0%, 100% {
+      transform: translateY(0) translateX(0);
+      opacity: 0.3;
+    }
+    25% {
+      transform: translateY(-100px) translateX(50px);
+      opacity: 0.6;
+    }
+    50% {
+      transform: translateY(-150px) translateX(-30px);
+      opacity: 1;
+    }
+    75% {
+      transform: translateY(-100px) translateX(-80px);
+      opacity: 0.6;
+    }
+  }
+
   .gradient-border {
     position: relative;
     background: white;

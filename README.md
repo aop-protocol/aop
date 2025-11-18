@@ -1,10 +1,69 @@
 # AOP (Agentic Observability Protocol)
 
-> **Universal observability standard for AI agents** - A "black box recorder" for agentic systems.
+> **Universal AI Agent Observability** - Works with MCP, LangChain, CrewAI, or custom agents. Also supports A2A and AP2 protocols.
+
+**A "black box recorder" for agentic systems** - Track, debug, and optimize agent behavior across any framework.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![Version](https://img.shields.io/badge/version-0.1.0--alpha-green.svg)](https://github.com/aop-protocol/aop)
+
+---
+
+## Why AOP?
+
+**The Problem:** When your AI agent fails, you have **NO idea why**.
+
+- Which tool failed?
+- What parameters caused the issue?
+- How long did each step take?
+- What was the full execution trace?
+
+**Before AOP:**
+```
+❌ Agent failed (no context, no logs, no trace)
+```
+
+**After AOP:**
+```bash
+$ aop trace --correlation-id abc123
+
+Execution Trace (850ms total):
+  ├─ tool.called: search_web (120ms)
+  │   └─ tool.completed ✓
+  ├─ tool.called: parse_results (45ms)
+  │   └─ tool.completed ✓
+  └─ tool.called: generate_summary (685ms) ← SLOW!
+      └─ tool.error: RateLimitError ❌
+
+✅ Now you know: Rate limit on the summary API!
+```
+
+**AOP is like a flight recorder for AI agents** - complete visibility into what happened, when, and why.
+
+---
+
+## Use Cases
+
+### 🐛 Debugging Agent Failures
+**Problem:** Agent crashes in production, you don't know why.
+**Solution:** Click the error event → "View Full Trace" → see entire execution chain
+
+### 💸 Cost Optimization
+**Problem:** Agent costs are exploding, unclear which tools/prompts are expensive.
+**Solution:** Analytics tab shows: most-called tools, slowest operations, cost per workflow
+
+### 🔍 Production Monitoring
+**Problem:** Need to monitor agent health, response times, error rates.
+**Solution:** Export to Prometheus, set up Grafana dashboards, get alerts
+
+### 🏢 Compliance & Auditing
+**Problem:** Enterprise needs audit trail of all agent actions.
+**Solution:** PostgreSQL backend, queryable event log, exportable to compliance systems
+
+### 👥 Multi-Agent Orchestration
+**Problem:** Multiple agents coordinate on tasks, hard to track who did what.
+**Solution:** Correlation IDs group related events, trace explorer shows agent interactions
 
 ---
 
@@ -23,12 +82,124 @@ AOP is a **universal observability protocol for AI agents** that works across MC
 
 ---
 
-## Quick Start
+## 5-Minute Quick Start
 
-### Installation
+### Step 1: Install AOP
 
 ```bash
-# Core library
+pip install aop[cli]
+```
+
+### Step 2: Add to Your MCP Server
+
+```python
+# your_mcp_server.py
+from mcp.server import Server
+from mcp.server.stdio import stdio_server
+from aop import AOPClient
+import asyncio
+
+# Initialize AOP (creates local database automatically)
+aop = AOPClient()
+
+# Create MCP server
+server = Server("my-server")
+
+# Decorate your MCP tools with AOP
+@server.call_tool()
+@aop.mcp.observe_tool(agent_id='my-server')
+async def search_web(query: str) -> dict:
+    """Search the web for information."""
+    # Your actual search implementation
+    import httpx
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f'https://api.duckduckgo.com/?q={query}&format=json')
+        return response.json()
+
+# Run the server
+if __name__ == "__main__":
+    asyncio.run(stdio_server(server))
+```
+
+⚠️ **IMPORTANT: Decorator Order Matters!**
+
+```python
+# ✅ CORRECT: MCP decorator FIRST, then AOP
+@server.call_tool()
+@aop.mcp.observe_tool(agent_id='my-server')
+async def my_tool():
+    ...
+
+# ❌ WRONG: AOP first breaks MCP registration
+@aop.mcp.observe_tool(agent_id='my-server')
+@server.call_tool()
+async def my_tool():
+    ...
+```
+
+### Step 3: Use Your Tool Through an LLM
+
+**Option A: Claude Desktop**
+
+Add to your Claude Desktop MCP config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "my-server": {
+      "command": "python",
+      "args": ["/path/to/your_mcp_server.py"]
+    }
+  }
+}
+```
+
+Restart Claude Desktop, then in chat:
+```
+"Search the web for AI agent observability tools"
+```
+
+When Claude calls your `search_web` tool, **AOP automatically logs it!** ✨
+
+**Option B: Any MCP Client**
+
+```python
+from mcp import ClientSession
+
+async with ClientSession() as session:
+    # When this runs, AOP captures it
+    result = await session.call_tool("search_web", {"query": "AI agents"})
+```
+
+### Step 4: Verify AOP Captured It
+
+```bash
+# Query events
+$ aop query --agent-id my-server --last 1h
+
+┌────────────────────┬──────────────┬──────────┬──────────┬───────────┐
+│ Timestamp          │ Agent        │ Tool     │ Duration │ Status    │
+├────────────────────┼──────────────┼──────────┼──────────┼───────────┤
+│ 2025-01-15 10:30   │ my-server    │ search   │ 145ms    │ ✓ Success │
+└────────────────────┴──────────────┴──────────┴──────────┴───────────┘
+```
+
+### Step 5: View Live Dashboard
+
+```bash
+$ aop dashboard
+# Open http://localhost:8000
+
+# Watch live as Claude uses your tools!
+```
+
+**That's it!** All your MCP tools now have complete observability.
+
+---
+
+## Installation
+
+```bash
+# Core library (zero dependencies)
 pip install aop
 
 # With optional features
@@ -41,9 +212,217 @@ pip install aop[prometheus]    # Prometheus metrics
 pip install aop[cli,dashboard,otel,prometheus]
 ```
 
-### Basic Usage (Decorator Pattern)
+---
 
-The decorator is the simplest way to add observability:
+## Framework Support
+
+### ✅ Ready Now
+- **MCP (Model Context Protocol)** - First-class support with `@observe_tool` decorator
+- **Standalone Python tools** - Decorator-based observability for any function
+- **FastMCP** - Works out of box with FastMCP servers
+- **Official MCP SDK** - Full support for mcp.server
+
+### 🚧 Coming Soon
+- **LangChain** - Callback handler integration (basic support via decorators available now)
+- **CrewAI** - Tool wrapper for CrewAI agents
+- **AutoGPT** - Plugin support for AutoGPT
+- **Semantic Kernel** - Middleware integration
+
+### 💡 Custom Frameworks
+Works with **any** agent framework - just log events manually:
+```python
+client.log_event({
+    'agent_id': 'my-agent',
+    'event_type': 'custom.tool.call',
+    'protocol': 'custom',
+    'data': {'tool': 'my-tool', 'params': {...}}
+})
+```
+
+---
+
+## Why AOP vs Alternatives?
+
+| Feature | AOP | LangSmith | Helicone | Custom Logging |
+|---------|-----|-----------|----------|----------------|
+| **Setup time** | 1 minute | Account signup | Proxy setup | Days of dev |
+| **Pricing** | Free | $99+/mo | Pay per request | Dev time cost |
+| **Data location** | Your machine | Cloud | Cloud | Your choice |
+| **Framework support** | Any | LangChain-first | LLM proxy only | Manual |
+| **Dashboard** | Included | Cloud UI | Cloud UI | Build yourself |
+| **Trace search** | Event ID/Correlation/Parent | Correlation only | Session only | Manual queries |
+| **Export formats** | JSON/CSV/TOON/OTEL/Prometheus | Limited | Limited | Custom |
+| **Privacy** | 100% local | Cloud-based | Cloud-based | Your choice |
+
+**Choose AOP if:**
+- Privacy/compliance requires local data
+- Multi-framework setup (MCP + LangChain + custom)
+- Don't want monthly subscription
+- Need self-hosted solution
+- Want full control over your observability data
+
+**Choose alternatives if:**
+- Want managed cloud service
+- Only use LangChain
+- Need enterprise support contracts
+- Prefer SaaS over self-hosted
+
+---
+
+## Integrating with MCP Servers
+
+### Using FastMCP
+
+```python
+from fastmcp import FastMCP
+from aop import AOPClient
+
+# Initialize AOP
+aop = AOPClient()
+
+# Create FastMCP server
+mcp = FastMCP("my-server")
+
+# Decorate your tools
+@mcp.tool()
+@aop.mcp.observe_tool(agent_id='my-server')
+def calculator(operation: str, a: float, b: float) -> float:
+    """Calculator tool with complete observability."""
+    ops = {'add': a+b, 'sub': a-b, 'mul': a*b, 'div': a/b}
+    return ops[operation]
+
+@mcp.tool()
+@aop.mcp.observe_tool(agent_id='my-server')
+def search(query: str, max_results: int = 5) -> list:
+    """Search tool with AOP logging."""
+    import httpx
+    response = httpx.get(f'https://api.example.com/search?q={query}')
+    return response.json()['results'][:max_results]
+```
+
+### Using Official MCP SDK
+
+```python
+from mcp.server import Server
+from mcp.server.stdio import stdio_server
+from aop import AOPClient
+import asyncio
+
+aop = AOPClient()
+server = Server("my-server")
+
+@server.call_tool()
+@aop.mcp.observe_tool(agent_id='my-server')
+async def get_weather(city: str) -> dict:
+    """Get weather for a city."""
+    # Your implementation
+    import httpx
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f'https://api.weather.com/{city}')
+        return response.json()
+
+if __name__ == "__main__":
+    asyncio.run(stdio_server(server))
+```
+
+### Multi-Tool Server Example
+
+```python
+from mcp.server import Server
+from aop import AOPClient
+
+aop = AOPClient()
+server = Server("research-assistant")
+
+@server.call_tool()
+@aop.mcp.observe_tool(agent_id='research-assistant')
+async def search_papers(topic: str, year: int) -> list:
+    """Search academic papers."""
+    # Implementation
+    pass
+
+@server.call_tool()
+@aop.mcp.observe_tool(agent_id='research-assistant')
+async def summarize_paper(paper_id: str) -> str:
+    """Summarize a paper."""
+    # Implementation
+    pass
+
+@server.call_tool()
+@aop.mcp.observe_tool(agent_id='research-assistant')
+async def extract_citations(paper_id: str) -> list:
+    """Extract citations from a paper."""
+    # Implementation
+    pass
+
+# All three tools now have complete observability!
+```
+
+---
+
+## Testing It Works
+
+After decorating your tools, verify AOP is logging:
+
+### 1. Check Events Were Logged
+
+```bash
+# View recent events
+$ aop query --agent-id my-server
+
+# Filter by tool name
+$ aop query --agent-id my-server --event-type mcp.tool.called
+
+# Last hour only
+$ aop query --agent-id my-server --last 1h
+```
+
+### 2. Verify Output
+
+**You should see:**
+```
+┌────────────────────┬──────────────┬──────────┬──────────┬───────────┐
+│ Timestamp          │ Agent        │ Tool     │ Duration │ Status    │
+├────────────────────┼──────────────┼──────────┼──────────┼───────────┤
+│ 2025-01-15 10:30   │ my-server    │ search   │ 145ms    │ ✓ Success │
+│ 2025-01-15 10:31   │ my-server    │ calc     │ 2ms      │ ✓ Success │
+└────────────────────┴──────────────┴──────────┴──────────┴───────────┘
+```
+
+**If you see nothing:**
+- Check decorator order (MCP decorator must be first!)
+- Verify agent_id matches
+- Check database file exists: `ls -la *.db`
+- See [Common Pitfalls](#common-pitfalls) below
+
+### 3. Check Database Location
+
+```bash
+# AOP creates database in current directory by default
+$ ls -la aop_events.db
+
+# Or specify custom location:
+client = AOPClient(storage='sqlite:///path/to/events.db')
+```
+
+### 4. Test Without LLM (Manual Testing)
+
+```python
+# For testing, you can call tools directly
+if __name__ == "__main__":
+    result = search_web("AI agents")
+    print(result)
+
+    # Check AOP logged it
+    events = aop.query(agent_id='my-server')
+    print(f"Logged {len(events)} events")
+```
+
+---
+
+## Basic Usage
+
+### Decorator Pattern (Recommended)
 
 ```python
 from aop import AOPClient
@@ -53,74 +432,47 @@ client = AOPClient()
 @client.mcp.observe_tool(agent_id='my-agent')
 def search(query: str, max_results: int = 10):
     """Search for information."""
-    results = perform_search(query, max_results)
-    return {'results': results, 'count': len(results)}
+    import httpx
+    response = httpx.get(f'https://api.duckduckgo.com/?q={query}&format=json')
+    results = response.json().get('RelatedTopics', [])
+    return results[:max_results]
 
 # Use normally - everything is logged automatically!
 result = search(query='AI agents', max_results=5)
 ```
 
 **What gets logged automatically:**
-- ✅ Function parameters
-- ✅ Return values
+- ✅ Tool name (`search`)
+- ✅ Function parameters (`query='AI agents'`, `max_results=5`)
+- ✅ Return value
 - ✅ Execution duration
-- ✅ Errors and exceptions
-- ✅ Parent-child relationships
+- ✅ Errors and exceptions (if any)
+- ✅ Parent-child relationships (for multi-step workflows)
 
-### Code Comparison
+### Context Manager
 
-**Without AOP (7 lines per tool):**
 ```python
-start = time.time()
-try:
-    result = search_tool('AI agents')
-    log_event('tool.called', {'duration': time.time() - start})
-except Exception as e:
-    log_event('tool.error', {'error': str(e)})
-finally:
-    log_event('tool.completed', {'duration': time.time() - start})
+with client.mcp.tool_execution('my-agent', 'search', {'q': 'test'}) as handle:
+    results = perform_search('test')
+    handle.set_result(results)
 ```
 
-**With AOP (1 line):**
-```python
-@client.mcp.observe_tool(agent_id='my-agent')
-def search_tool(query: str):
-    return perform_search(query)
-```
+### Manual Logging
 
-**86% less code!**
+```python
+client.log_event({
+    'agent_id': 'my-agent',
+    'event_type': 'mcp.tool.called',
+    'protocol': 'mcp',
+    'data': {'tool_name': 'search', 'params': {'q': 'test'}}
+})
+```
 
 ---
 
 ## Core Features
 
-### 1. Event Logging
-
-```python
-from aop import AOPClient
-
-client = AOPClient()
-
-# Decorator (recommended)
-@client.mcp.observe_tool(agent_id='my-agent')
-def my_tool(param: str):
-    return process(param)
-
-# Context manager
-with client.mcp.tool_execution('my-agent', 'search', {'q': 'test'}) as handle:
-    result = search('test')
-    handle.set_result(result)
-
-# Manual
-client.log_event({
-    'agent_id': 'my-agent',
-    'event_type': 'mcp.tool.called',
-    'protocol': 'mcp',
-    'data': {'tool_name': 'search'}
-})
-```
-
-### 2. Querying Events
+### 1. Querying Events
 
 ```python
 # Get recent events
@@ -143,7 +495,7 @@ recent = client.query(
 trace_events = client.get_trace(correlation_id='trace-123')
 ```
 
-### 3. Analytics & Insights
+### 2. Analytics & Insights
 
 ```python
 from aop import Analytics
@@ -168,7 +520,7 @@ timeline = analytics.events_over_time('my-agent', bucket_size='1h')
 rate = analytics.event_rate('my-agent', window_minutes=60)
 ```
 
-### 4. Command-Line Interface
+### 3. Command-Line Interface
 
 ```bash
 # Query events
@@ -191,7 +543,7 @@ aop prometheus --port 9090
 aop dashboard
 ```
 
-### 5. Web Dashboard
+### 4. Web Dashboard
 
 Launch a professional web interface for real-time monitoring:
 
@@ -206,43 +558,37 @@ aop dashboard
 - **Click-to-View** - Click any event row to see full details in side panel
 - **Smart Sorting** - Sort by date/time, agent (A-Z), event type, or duration
 - **Color-Coded Status** - Visual indicators (🟢 success, 🔴 error, 🔵 in-progress)
-- **Trace Visualization** - Interactive tree view of distributed traces
-- **Analytics Charts** - Real-time performance metrics and statistics
-- **Filtering** - Filter by agent, event type, protocol, time range
+- **Export from UI** - Export to JSON, CSV, TOON, OpenTelemetry, Prometheus
+- **Real-time Stats** - Live performance metrics as events stream in
 
 Access at `http://localhost:8000`
 
-### 6. Exporters
+### 5. Exporters
 
-#### OpenTelemetry
+#### JSON Export
 
 ```python
-from aop.exporters import OpenTelemetryExporter
+from aop.exporters import JSONExporter
 
-exporter = OpenTelemetryExporter(client)
-events = client.query(correlation_id='trace-123')
-spans = exporter.export_events(events)
+exporter = JSONExporter(client)
+events = client.query(agent_id='my-agent', limit=100)
+json_output = exporter.export(events)
 
-exporter.export_to_collector(
-    spans=spans,
-    endpoint='http://localhost:4317'
-)
+# Save to file
+exporter.export_to_file(events, 'events.json')
 ```
 
-#### Prometheus
+#### CSV Export
 
-```bash
-# Start metrics server
-aop prometheus --port 9090
+```python
+from aop.exporters import CSVExporter
 
-# Metrics available at http://localhost:9090/metrics
+exporter = CSVExporter(client)
+events = client.query(agent_id='my-agent', limit=100)
+
+# Export to file
+exporter.export_to_file(events, 'events.csv')
 ```
-
-**Metrics exposed:**
-- `aop_events_total` - Total events (by type, agent, protocol)
-- `aop_tool_duration_seconds` - Tool duration histogram
-- `aop_tool_errors_total` - Tool error counter
-- `aop_event_rate` - Events per minute gauge
 
 #### TOON (Token-Oriented Object Notation)
 
@@ -288,6 +634,36 @@ aop export -o recent.toon -f toon --last 1h --limit 100
 - Cost-effective trace analysis with GPT-4/Claude
 - Passing large event datasets in LLM prompts
 - Automated performance analysis
+
+#### OpenTelemetry
+
+```python
+from aop.exporters import OpenTelemetryExporter
+
+exporter = OpenTelemetryExporter(client)
+events = client.query(correlation_id='trace-123')
+spans = exporter.export_events(events)
+
+exporter.export_to_collector(
+    spans=spans,
+    endpoint='http://localhost:4317'
+)
+```
+
+#### Prometheus
+
+```bash
+# Start metrics server
+aop prometheus --port 9090
+
+# Metrics available at http://localhost:9090/metrics
+```
+
+**Metrics exposed:**
+- `aop_events_total` - Total events (by type, agent, protocol)
+- `aop_tool_duration_seconds` - Tool duration histogram
+- `aop_tool_errors_total` - Tool error counter
+- `aop_event_rate` - Events per minute gauge
 
 ---
 
@@ -420,7 +796,377 @@ result1 = step1()
 result2 = step2(result1)
 
 # Reconstruct complete trace
+from aop import Analytics
+analytics = Analytics(client)
 trace = analytics.reconstruct_trace(correlation_id=trace_id)
+```
+
+---
+
+## 🔍 Trace Explorer - Multiple Search Methods
+
+AOP supports **three ways** to view execution traces:
+
+### 1. By Correlation ID (Original)
+Group all events in a workflow using a shared correlation ID.
+
+```python
+# When logging events
+with client.trace('user-request-123'):
+    client.mcp.log_tool_call(...)  # Auto-tagged with correlation_id
+
+# View trace
+from aop import Analytics
+analytics = Analytics(client)
+trace = analytics.reconstruct_trace('user-request-123')
+```
+
+**Dashboard:** Enter correlation ID in Trace Explorer tab
+
+**CLI:**
+```bash
+aop trace --correlation-id user-request-123
+```
+
+**API:**
+```
+GET /api/traces/{correlation_id}
+```
+
+### 2. By Event ID ⭐ NEW
+Click any event to see its complete trace - **no correlation ID needed!**
+
+**Dashboard:**
+1. Click any event in Live Feed
+2. Click "🔍 View Full Trace" button
+3. Automatically shows root + all related events
+
+**How it works:**
+- Walks up `parent_id` chain to find root event
+- Walks down to find all children
+- Reconstructs complete execution tree
+
+**API:**
+```
+GET /api/traces/by-event/{event_id}
+```
+
+**Example:**
+```python
+# Log events without correlation_id
+call_event = client.mcp.log_tool_call(
+    agent_id='my-agent',
+    tool_name='search',
+    params={'query': 'test'}
+)
+
+result_event = client.mcp.log_tool_result(
+    agent_id='my-agent',
+    tool_name='search',
+    result={'found': 10},
+    duration_ms=120,
+    parent_id=call_event  # Links to parent
+)
+
+# Reconstruct trace using ANY event ID
+analytics = Analytics(client)
+trace = analytics.reconstruct_trace_from_event(result_event)
+# Returns both events in tree structure!
+```
+
+### 3. By Parent ID ⭐ NEW
+Search using any parent event ID to see all its children.
+
+**API:**
+```
+GET /api/traces/by-parent/{parent_id}
+```
+
+**Why Multiple Search Methods?**
+
+| Method | Use Case |
+|--------|----------|
+| **Correlation ID** | Planned workflows, multi-agent orchestration |
+| **Event ID** | Debugging - "show me what led to this error" |
+| **Parent ID** | Analyzing specific operation's sub-operations |
+
+**No correlation_id? No problem!** Event ID search works even when you forgot to set correlation IDs.
+
+---
+
+## Verify It's Working (60 Second Test)
+
+### 1. Install and start dashboard
+```bash
+pip install aop[dashboard]
+aop dashboard
+```
+
+### 2. In another terminal, log a test event
+```python
+from aop import AOPClient
+
+client = AOPClient()
+client.log_event({
+    'agent_id': 'test-agent',
+    'event_type': 'mcp.tool.called',
+    'protocol': 'mcp',
+    'data': {'tool_name': 'test_tool', 'params': {'query': 'hello'}}
+})
+```
+
+### 3. Check dashboard
+Open `http://localhost:8000` - you should see your test event in Live Feed.
+
+✅ **Working?** You're ready to integrate with your agent.
+❌ **Not showing?** Check the [troubleshooting section](#common-pitfalls) below.
+
+---
+
+## How It Works
+
+```
+┌─────────────────┐
+│  Your Agent     │
+│ (MCP/LangChain) │
+└────────┬────────┘
+         │ @observe_tool decorator
+         ▼
+┌─────────────────┐
+│   AOPClient     │ ← Logs events
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│    Storage      │ ← SQLite/PostgreSQL
+│ (local/cloud)   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│   Dashboard     │ ← Visualize & export
+│   Analytics     │
+└─────────────────┘
+```
+
+**Key Design Principles:**
+- **Zero external dependencies** for core library
+- **Local-first** - works offline, no cloud required
+- **Async logging** - doesn't slow down your agent
+- **Pluggable storage** - SQLite for dev, PostgreSQL for prod
+
+---
+
+## Common Pitfalls
+
+### "I decorated my function but see no events"
+
+**Solution 1: Check Decorator Order**
+```python
+# ✅ CORRECT
+@server.call_tool()  # MCP decorator FIRST
+@aop.mcp.observe_tool(agent_id='my-server')
+async def my_tool():
+    ...
+
+# ❌ WRONG
+@aop.mcp.observe_tool(agent_id='my-server')  # AOP first breaks MCP
+@server.call_tool()
+async def my_tool():
+    ...
+```
+
+**Solution 2: Verify Database Location**
+```bash
+# Check if database was created
+$ ls -la *.db
+-rw-r--r--  1 user  staff  12288 Jan 15 10:30 aop_events.db
+
+# If not found, specify explicit path
+client = AOPClient(storage='sqlite:///./aop_events.db')
+```
+
+**Solution 3: Tool Must Be Called By LLM**
+```
+Remember: MCP tools only generate events when CALLED!
+- Start your server
+- Use tool through Claude Desktop or MCP client
+- Then check: aop query --agent-id my-server
+```
+
+### "Events not showing in dashboard"
+
+**Check agent_id matches:**
+```python
+# In code
+@aop.mcp.observe_tool(agent_id='my-server')  # ← Note the ID
+
+# In query
+$ aop query --agent-id my-server  # ← Must match exactly!
+```
+
+### "Async function breaks with decorator"
+
+**Decorator order is critical:**
+```python
+# ✅ Works with async
+@server.call_tool()
+@aop.mcp.observe_tool(agent_id='my-server')
+async def my_async_tool():
+    await asyncio.sleep(1)
+    return "done"
+```
+
+### "Database locked" error
+
+**Multiple processes accessing same database:**
+```python
+# Solution: Use PostgreSQL for multi-process
+client = AOPClient(storage='postgresql://localhost/aop')
+
+# Or: Use separate databases per process
+client = AOPClient(storage=f'sqlite:///aop_{os.getpid()}.db')
+```
+
+### "No module named 'mcp'"
+
+**Install MCP SDK:**
+```bash
+pip install mcp
+# or
+pip install fastmcp
+```
+
+---
+
+## Examples
+
+Complete working examples:
+
+### Basic MCP Server with AOP
+
+See [examples/mcp_server_with_aop.py](examples/mcp_server_with_aop.py) for a complete, runnable example.
+
+### Decorator Usage
+
+See [docs/examples/decorator_demo.py](docs/examples/decorator_demo.py) - Shows async/sync tools with decorators.
+
+### Analytics and Tracing
+
+See [docs/examples/analytics_demo.py](docs/examples/analytics_demo.py) - Analytics and trace reconstruction.
+
+### TOON Export
+
+See [examples/toon_export_demo.py](examples/toon_export_demo.py) - Export events in TOON format.
+
+**Run examples:**
+```bash
+# Complete MCP server example
+python examples/mcp_server_with_aop.py
+
+# Decorator patterns
+python docs/examples/decorator_demo.py
+
+# Analytics demo
+python docs/examples/analytics_demo.py
+```
+
+---
+
+## Complete Real-World Example: Weather Agent
+
+Here's a complete, copy-pasteable example of an MCP weather server with AOP:
+
+```python
+# weather_server.py
+from mcp.server import Server
+from mcp.server.stdio import stdio_server
+from aop import AOPClient
+import asyncio
+import httpx
+
+# Initialize AOP
+aop = AOPClient(storage='sqlite:///weather_events.db')
+server = Server("weather-agent")
+
+@server.call_tool()
+@aop.mcp.observe_tool(agent_id="weather-agent")
+async def get_weather(city: str) -> dict:
+    """Get current weather for a city."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"https://api.openweathermap.org/data/2.5/weather",
+            params={"q": city, "appid": "YOUR_API_KEY", "units": "metric"}
+        )
+        data = response.json()
+        return {
+            "city": city,
+            "temperature": data["main"]["temp"],
+            "description": data["weather"][0]["description"],
+            "humidity": data["main"]["humidity"]
+        }
+
+@server.call_tool()
+@aop.mcp.observe_tool(agent_id="weather-agent")
+async def get_forecast(city: str, days: int = 5) -> dict:
+    """Get weather forecast."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"https://api.openweathermap.org/data/2.5/forecast",
+            params={"q": city, "appid": "YOUR_API_KEY", "units": "metric", "cnt": days}
+        )
+        return response.json()
+
+if __name__ == "__main__":
+    asyncio.run(stdio_server(server))
+```
+
+**Run it:**
+
+```bash
+# Install dependencies
+pip install aop[cli,dashboard] mcp httpx
+
+# Start server (in one terminal)
+python weather_server.py &
+
+# Start dashboard (in another terminal)
+aop dashboard
+```
+
+**Use it in Claude Desktop:**
+
+Add to your MCP settings (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "weather": {
+      "command": "python",
+      "args": ["/path/to/weather_server.py"]
+    }
+  }
+}
+```
+
+Restart Claude Desktop and ask:
+```
+"What's the weather in San Francisco?"
+```
+
+**See observability:**
+
+1. **Live Feed:** Real-time tool calls as you chat
+2. **Trace Explorer:** See which weather calls happened together
+3. **Analytics:** Which cities you query most, average response time
+4. **Export:** Download events as JSON, CSV, or TOON
+
+```bash
+# View recent tool calls
+aop query --agent-id weather-agent --last 1h
+
+# Export to TOON for LLM analysis
+aop export -o weather_trace.toon -f toon --agent-id weather-agent
 ```
 
 ---
@@ -431,10 +1177,15 @@ trace = analytics.reconstruct_trace(correlation_id=trace_id)
 
 ```python
 from langchain.tools import Tool
+from aop import AOPClient
+
+client = AOPClient()
 
 @client.mcp.observe_tool(agent_id='langchain-agent')
 def search_tool(query: str) -> str:
-    return perform_search(query)
+    import httpx
+    response = httpx.get(f'https://api.duckduckgo.com/?q={query}&format=json')
+    return str(response.json())
 
 lc_tool = Tool(
     name="Search",
@@ -468,44 +1219,6 @@ View metrics in Grafana with pre-built dashboards.
 
 ---
 
-## Documentation
-
-### Getting Started
-- **[Installation & Quick Start](docs/getting-started.md)** - Get up and running in 5 minutes
-- **[User Guide](docs/user-guide.md)** - Comprehensive usage guide
-- **[Examples](docs/examples/)** - Code examples and tutorials
-
-### Reference
-- **[API Reference](docs/api-reference.md)** - Complete API documentation
-- **[CLI Reference](docs/cli.md)** - Command-line tools
-- **[Event Schema Specification](docs/specification/event-schema-v1.0.md)** - Event schema details
-
-### Advanced
-- **[Protocol Guide](docs/protocols.md)** - MCP, A2A, AP2 protocols in depth
-- **[Dashboard Guide](docs/dashboard.md)** - Web dashboard usage
-- **[Integrations](docs/integrations.md)** - OpenTelemetry, Prometheus, frameworks
-- **[Architecture](docs/architecture.md)** - System design and internals
-- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
-
----
-
-## Examples
-
-Complete working examples in the [`examples/`](examples/) directory:
-
-- **[decorator_demo.py](examples/decorator_demo.py)** - Decorator usage with async/sync tools
-- **[analytics_demo.py](examples/analytics_demo.py)** - Analytics and trace reconstruction
-- **[More examples](docs/examples/)** - Additional patterns and use cases
-
-Run examples:
-
-```bash
-python examples/decorator_demo.py
-python examples/analytics_demo.py
-```
-
----
-
 ## Performance
 
 AOP is designed for production use with minimal overhead:
@@ -533,6 +1246,27 @@ AOP is designed for production use with minimal overhead:
 
 ---
 
+## Documentation
+
+### Getting Started
+- **[Installation & Quick Start](docs/getting-started.md)** - Get up and running in 5 minutes
+- **[User Guide](docs/user-guide.md)** - Comprehensive usage guide
+- **[Examples](docs/examples/)** - Code examples and tutorials
+
+### Reference
+- **[API Reference](docs/api-reference.md)** - Complete API documentation
+- **[CLI Reference](docs/cli.md)** - Command-line tools
+- **[Event Schema Specification](docs/specification/event-schema-v1.0.md)** - Event schema details
+
+### Advanced
+- **[Protocol Guide](docs/protocols.md)** - MCP, A2A, AP2 protocols in depth
+- **[Dashboard Guide](docs/dashboard.md)** - Web dashboard usage
+- **[Integrations](docs/integrations.md)** - OpenTelemetry, Prometheus, frameworks
+- **[Architecture](docs/architecture.md)** - System design and internals
+- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
+
+---
+
 ## Roadmap
 
 See [RoadMap.md](RoadMap.md) for detailed development plan.
@@ -544,6 +1278,7 @@ See [RoadMap.md](RoadMap.md) for detailed development plan.
 - ✅ CLI tools
 - ✅ Web dashboard
 - ✅ OpenTelemetry and Prometheus exporters
+- ✅ TOON export format
 
 **v0.2.0** (Planned)
 - Batch insert optimization
