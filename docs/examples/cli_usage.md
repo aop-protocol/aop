@@ -5,8 +5,8 @@ This guide demonstrates how to use the AOP command-line interface for querying e
 ## Installation
 
 ```bash
-# Install AOP with CLI dependencies
-pip install aop[cli]
+# Install AOP with all features included
+pip install aop-pack
 ```
 
 ## Commands Overview
@@ -442,8 +442,8 @@ aop trace --correlation-id trace-123 --format json | \
 ### Command not found
 
 ```bash
-# Ensure CLI dependencies are installed
-pip install aop[cli]
+# Ensure aop-pack is installed
+pip install aop-pack
 
 # If using virtual environment, activate it first
 source .venv/bin/activate

@@ -41,16 +41,17 @@ The AOP Dashboard is a professional web-based interface for exploring and analyz
 - Python 3.8+
 - pip
 
-### Install Dashboard Dependencies
+### Install Dashboard
 
 ```bash
-pip install aop[dashboard]
+pip install aop-pack
 ```
 
-This installs:
+All dashboard dependencies are included:
 - `fastapi` - Web framework
 - `uvicorn` - ASGI server
-- `websockets` - Real-time streaming
+- `httpx` - HTTP client
+- All required components
 
 ### Verify Installation
 

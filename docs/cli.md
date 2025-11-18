@@ -5,10 +5,10 @@ Complete command-line interface reference for AOP.
 ## Installation
 
 ```bash
-pip install aop[cli]
+pip install aop-pack
 ```
 
-This installs CLI dependencies: `click` and `rich`.
+All CLI dependencies (`click` and `rich`) are included in the package.
 
 ## Global Options
 

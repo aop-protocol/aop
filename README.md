@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.1.0--alpha-green.svg)](https://github.com/aop-protocol/aop)
+[![Version](https://img.shields.io/badge/version-0.1.0--alpha4-green.svg)](https://github.com/aop-protocol/aop)
 
 ---
 
@@ -87,7 +87,7 @@ AOP is a **universal observability protocol for AI agents** that works across MC
 ### Step 1: Install AOP
 
 ```bash
-pip install aop[cli]
+pip install aop-pack
 ```
 
 ### Step 2: Add to Your MCP Server
@@ -199,18 +199,18 @@ $ aop dashboard
 ## Installation
 
 ```bash
-# Core library (zero dependencies)
-pip install aop
-
-# With optional features
-pip install aop[cli]            # Command-line tools
-pip install aop[dashboard]      # Web dashboard
-pip install aop[otel]          # OpenTelemetry export
-pip install aop[prometheus]    # Prometheus metrics
-
-# Everything
-pip install aop[cli,dashboard,otel,prometheus]
+# Complete package with all features included
+pip install aop-pack
 ```
+
+The `aop-pack` package includes everything you need:
+- ✅ Core observability library
+- ✅ Command-line tools (CLI)
+- ✅ Web dashboard
+- ✅ OpenTelemetry export
+- ✅ Prometheus metrics
+- ✅ PostgreSQL support
+- ✅ All dependencies bundled
 
 ---
 
@@ -898,7 +898,7 @@ GET /api/traces/by-parent/{parent_id}
 
 ### 1. Install and start dashboard
 ```bash
-pip install aop[dashboard]
+pip install aop-pack
 aop dashboard
 ```
 
@@ -1125,7 +1125,7 @@ if __name__ == "__main__":
 
 ```bash
 # Install dependencies
-pip install aop[cli,dashboard] mcp httpx
+pip install aop-pack mcp httpx
 
 # Start server (in one terminal)
 python weather_server.py &
@@ -1327,7 +1327,7 @@ If you use AOP in your research or project, please cite:
   author = {AOP Contributors},
   year = {2025},
   url = {https://github.com/aop-protocol/aop},
-  version = {0.1.0-alpha}
+  version = {0.1.0-alpha4}
 }
 ```
 

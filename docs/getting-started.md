@@ -4,40 +4,27 @@ Get up and running with AOP in 5 minutes!
 
 ## Installation
 
-### Basic Installation
+### Complete Package Installation
 
 ```bash
-pip install aop
+pip install aop-pack
 ```
 
-### With Optional Features
-
-```bash
-# CLI tools (recommended)
-pip install aop[cli]
-
-# Dashboard
-pip install aop[dashboard]
-
-# OpenTelemetry export
-pip install aop[otel]
-
-# Prometheus export
-pip install aop[prometheus]
-
-# PostgreSQL storage
-pip install aop[postgresql]
-
-# Everything
-pip install aop[cli,dashboard,otel,prometheus,postgresql]
-```
+The `aop-pack` package includes all features and dependencies:
+- ✅ Core observability library
+- ✅ CLI tools
+- ✅ Web dashboard
+- ✅ OpenTelemetry export
+- ✅ Prometheus metrics
+- ✅ PostgreSQL support
+- ✅ All required dependencies
 
 ### From Source
 
 ```bash
 git clone https://github.com/aop-protocol/aop.git
 cd aop
-pip install -e ".[cli,dashboard]"
+pip install -e .
 ```
 
 ## Quick Start (MCP Example)
@@ -173,7 +160,7 @@ client = AOPClient(storage='postgresql://user:pass@localhost:5432/aop')
 
 ## Command-Line Interface
 
-After installing with `pip install aop[cli]`:
+After installing `aop-pack`:
 
 ```bash
 # Query events
@@ -196,10 +183,7 @@ See [CLI Reference](cli.md) for complete documentation.
 Start the interactive dashboard:
 
 ```bash
-# Install dashboard dependencies
-pip install aop[dashboard]
-
-# Launch dashboard
+# Launch dashboard (all dependencies included)
 aop dashboard
 
 # Or from Python

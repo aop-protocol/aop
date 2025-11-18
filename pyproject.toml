@@ -3,8 +3,8 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aop"
-version = "0.1.0-alpha"
+name = "aop-pack"
+version = "0.1.0a4"
 description = "Universal observability protocol for AI agents"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -23,10 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 
-dependencies = []
-
-[project.optional-dependencies]
-dev = [
+dependencies = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "black>=23.0",
@@ -34,29 +31,16 @@ dev = [
     "mypy>=1.0",
     "types-psycopg2>=2.9.0",
     "bandit>=1.7",
-]
-postgresql = [
     "psycopg2-binary>=2.9.0",
-]
-cli = [
     "click>=8.1.0",
     "rich>=13.0.0",
-]
-dashboard = [
     "fastapi>=0.104.0",
     "uvicorn[standard]>=0.24.0",
     "httpx>=0.25.0",
-]
-otel = [
     "opentelemetry-api>=1.20.0",
     "opentelemetry-sdk>=1.20.0",
     "opentelemetry-exporter-otlp>=1.20.0",
-]
-prometheus = [
     "prometheus-client>=0.19.0",
-]
-exporters = [
-    "aop[otel,prometheus]",
 ]
 
 [project.scripts]
@@ -83,6 +67,12 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "--cov=aop --cov-report=term-missing"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+aop = ["dashboard/static/*.html"]
 
 [tool.mypy]
 python_version = "3.9"

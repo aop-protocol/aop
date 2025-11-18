@@ -42,24 +42,14 @@ ImportError: No module named 'click'
 ImportError: No module named 'prometheus_client'
 ```
 
-**Solution:** Install with optional features:
+**Solution:** Install the complete `aop-pack` package:
 
 ```bash
-# CLI tools
-pip install aop[cli]
-
-# Dashboard
-pip install aop[dashboard]
-
-# Prometheus
-pip install aop[prometheus]
-
-# OpenTelemetry
-pip install aop[otel]
-
-# Everything
-pip install aop[cli,dashboard,otel,prometheus]
+# All features included
+pip install aop-pack
 ```
+
+This includes CLI tools, dashboard, Prometheus, OpenTelemetry, and all dependencies.
 
 ### Version Conflicts
 

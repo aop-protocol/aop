@@ -45,4 +45,4 @@ AOP is a universal observability standard for AI agents - a "black box recorder"
 
 ## Version
 
-This documentation is for **AOP v0.1.0-alpha**.
+This documentation is for **AOP v0.1.0-alpha4**.

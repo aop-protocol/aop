@@ -1602,7 +1602,7 @@ AOP provides specialized compliance packages for specific regulations:
 
 **Usage**:
 ```bash
-pip install aop[dashboard] aop-gdpr aop-hipaa
+pip install aop-pack aop-gdpr aop-hipaa
 ```
 
 Each package includes:

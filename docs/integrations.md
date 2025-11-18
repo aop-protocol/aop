@@ -20,10 +20,10 @@ Export AOP events to OpenTelemetry format for distributed tracing.
 ### Installation
 
 ```bash
-pip install aop[otel]
+pip install aop-pack
 ```
 
-This installs:
+OpenTelemetry dependencies are included:
 - `opentelemetry-api`
 - `opentelemetry-sdk`
 - `opentelemetry-exporter-otlp`
@@ -222,10 +222,10 @@ Expose AOP metrics for Prometheus scraping.
 ### Installation
 
 ```bash
-pip install aop[prometheus]
+pip install aop-pack
 ```
 
-This installs:
+Prometheus dependencies are included:
 - `prometheus-client`
 
 ### Basic Usage

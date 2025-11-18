@@ -679,16 +679,19 @@ client = AOPClient(
 
 ### 2. Zero Runtime Dependencies
 
-Core library has no required dependencies:
+All dependencies are included in the `aop-pack` package:
 
-```python
-# Core: No deps
-from aop import AOPClient
-
-# Optional features require extras
-pip install aop[otel]       # OpenTelemetry deps
-pip install aop[prometheus] # Prometheus deps
+```bash
+# Install complete package with all features
+pip install aop-pack
 ```
+
+The package includes:
+- Core observability library
+- OpenTelemetry exporters
+- Prometheus exporters
+- Dashboard and CLI tools
+- All required dependencies
 
 ### 3. Protocol-Agnostic
 
