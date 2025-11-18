@@ -193,6 +193,68 @@ def get_trace(correlation_id: str) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/traces/by-event/{event_id}")
+def get_trace_by_event(event_id: str) -> Dict[str, Any]:
+    """
+    Reconstruct trace from any event ID.
+    
+    Walks up parent chain to root, then returns full trace.
+    
+    Args:
+        event_id: Any event ID in the trace
+        
+    Returns:
+        Trace structure
+    """
+    if not analytics:
+        raise HTTPException(status_code=500, detail="Analytics not initialized")
+    
+    try:
+        trace = analytics.reconstruct_trace_from_event(event_id)
+        
+        if not trace or not trace.get('root_event'):
+            raise HTTPException(
+                status_code=404,
+                detail=f"No trace found for event_id: {event_id}"
+            )
+        
+        return trace
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/traces/by-parent/{parent_id}")
+def get_trace_by_parent(parent_id: str) -> Dict[str, Any]:
+    """
+    Reconstruct trace from parent event ID.
+    
+    Same as by-event - finds trace containing this parent.
+    
+    Args:
+        parent_id: Parent event ID
+        
+    Returns:
+        Trace structure
+    """
+    if not analytics:
+        raise HTTPException(status_code=500, detail="Analytics not initialized")
+    
+    try:
+        trace = analytics.reconstruct_trace_from_event(parent_id)
+        
+        if not trace or not trace.get('root_event'):
+            raise HTTPException(
+                status_code=404,
+                detail=f"No trace found for parent_id: {parent_id}"
+            )
+        
+        return trace
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/stats")
 def get_stats(

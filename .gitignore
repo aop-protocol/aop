@@ -260,7 +260,6 @@ data/*.db
 *_metrics_*.txt
 
 # Landing page (separate project)
-landing-page/
 
 # OS
 .DS_Store
@@ -268,4 +267,3 @@ Thumbs.db
 
 # Logs
 *.log
-

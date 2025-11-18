@@ -136,6 +136,132 @@ class Analytics:
             'event_count': len(events),
             'error_count': error_count
         }
+    
+    def reconstruct_trace_from_event(self, event_id: str) -> Dict[str, Any]:
+        """
+        Reconstruct trace starting from any event ID.
+        
+        Walks up parent chain to find root, then reconstructs full trace.
+        
+        Args:
+            event_id: Any event ID in the trace
+            
+        Returns:
+            Same structure as reconstruct_trace()
+        """
+        # Get the starting event
+        event = self.client.get_event(event_id)
+        if not event:
+            return {
+                'root_event': None,
+                'children': [],
+                'total_duration_ms': 0,
+                'event_count': 0,
+                'error_count': 0
+            }
+        
+        # If event has correlation_id, use the normal trace reconstruction
+        if event.get('correlation_id'):
+            return self.reconstruct_trace(correlation_id=event['correlation_id'])
+        
+        # Walk up parent chain to find root
+        root_event = self._find_root_event(event)
+        
+        # Collect all events in this trace (root + all descendants)
+        all_events = [root_event]
+        all_events.extend(self._collect_all_descendants_recursive(root_event['id']))
+        
+        # Build tree structure
+        return self._build_trace_tree_from_events(all_events, root_event)
+    
+    def _find_root_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        """Walk up parent chain to find root event."""
+        current = event
+        visited = {event['id']}  # Prevent infinite loops
+        max_depth = 100  # Safety limit
+        depth = 0
+        
+        while current.get('parent_id') and depth < max_depth:
+            parent_id = current['parent_id']
+            
+            # Avoid infinite loops
+            if parent_id in visited:
+                break
+            
+            # Try to get parent
+            parent = self.client.get_event(parent_id)
+            if not parent:
+                # Parent not found, current is root
+                break
+            
+            visited.add(parent_id)
+            current = parent
+            depth += 1
+        
+        return current
+    
+    def _collect_all_descendants_recursive(self, parent_id: str) -> List[Dict[str, Any]]:
+        """Recursively collect all descendant events."""
+        descendants = []
+        
+        # Query all events - we'll filter by parent_id
+        all_events = self.client.query(limit=10000)
+        
+        # Build parent->children map
+        children_by_parent = defaultdict(list)
+        for event in all_events:
+            if event.get('parent_id'):
+                children_by_parent[event['parent_id']].append(event)
+        
+        # Recursive collection
+        def collect_children(pid: str):
+            for child in children_by_parent.get(pid, []):
+                if child not in descendants:
+                    descendants.append(child)
+                    collect_children(child['id'])
+        
+        collect_children(parent_id)
+        return descendants
+    
+    def _build_trace_tree_from_events(
+        self, 
+        events: List[Dict[str, Any]], 
+        root_event: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Build trace tree structure from list of events."""
+        
+        # Build lookup maps
+        events_by_id = {e['id']: e for e in events}
+        children_map = defaultdict(list)
+        
+        for event in events:
+            parent_id = event.get('parent_id')
+            if parent_id and parent_id in events_by_id:
+                children_map[parent_id].append(event)
+        
+        # Recursive tree builder
+        def build_tree(event: Dict[str, Any]) -> Dict[str, Any]:
+            children = []
+            for child_event in children_map.get(event['id'], []):
+                children.append(build_tree(child_event))
+            return {
+                'event': event,
+                'children': children
+            }
+        
+        tree = build_tree(root_event)
+        
+        # Calculate statistics
+        total_duration = sum(e.get('duration_ms', 0) for e in events if e.get('duration_ms'))
+        error_count = sum(1 for e in events if '.error' in e.get('event_type', ''))
+        
+        return {
+            'root_event': root_event,
+            'children': tree['children'],
+            'total_duration_ms': total_duration,
+            'event_count': len(events),
+            'error_count': error_count
+        }
 
     def _find_descendants(self, parent_id: str) -> List[Dict[str, Any]]:
         """Find all events that are descendants of the given parent."""
