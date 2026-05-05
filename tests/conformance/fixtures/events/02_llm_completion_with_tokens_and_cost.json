@@ -1,0 +1,17 @@
+{
+  "id": "0193a2b1-2222-7000-8000-000000000001",
+  "version": "1.1",
+  "timestamp": "2025-05-05T12:00:01.500Z",
+  "agent_id": "my-agent",
+  "instance_id": "0193a2b1-2222-7000-8000-000000000002",
+  "protocol": "llm",
+  "event_type": "llm.completion.response",
+  "duration_ms": 850,
+  "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+  "span_id": "00f067aa0ba902b7",
+  "parent_span_id": "00f067aa0ba90200",
+  "data": {"provider": "openai", "model": "gpt-4o-mini"},
+  "tokens": {"prompt": 1200, "completion": 350, "total": 1550},
+  "cost": {"amount": 0.000585, "currency": "USD",
+            "model": "gpt-4o-mini", "provider": "openai"}
+}

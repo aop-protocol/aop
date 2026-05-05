@@ -1,0 +1,11 @@
+{
+  "id": "0193a2b1-4444-7000-8000-000000000001",
+  "version": "1.1",
+  "timestamp": "2025-05-05T12:00:03.000Z",
+  "agent_id": "my-agent",
+  "instance_id": "0193a2b1-4444-7000-8000-000000000002",
+  "protocol": "acp",
+  "event_type": "acp.invocation.started",
+  "data": {"target_agent": "remote-agent", "operation": "search",
+           "request": {"q": "test"}}
+}

@@ -1,0 +1,72 @@
+{
+  "description": "Multi-protocol trace: A2A orchestration calls MCP tool, makes LLM call, makes payment.",
+  "trace_id": "5af7651916cd43dd8448eb211c80aabb",
+  "events": [
+    {
+      "id": "0193a2b1-aa00-7000-8000-000000000001",
+      "version": "1.1",
+      "timestamp": "2025-05-05T12:00:00.000Z",
+      "agent_id": "orchestrator",
+      "instance_id": "0193a2b1-aa00-7000-8000-000000000002",
+      "protocol": "a2a",
+      "event_type": "a2a.task.assigned",
+      "trace_id": "5af7651916cd43dd8448eb211c80aabb",
+      "span_id": "1111111111111111",
+      "data": {"task_id": "t-1", "assignee": "worker-1"}
+    },
+    {
+      "id": "0193a2b1-aa00-7000-8000-000000000003",
+      "version": "1.1",
+      "timestamp": "2025-05-05T12:00:00.500Z",
+      "agent_id": "worker-1",
+      "instance_id": "0193a2b1-aa00-7000-8000-000000000004",
+      "protocol": "mcp",
+      "event_type": "mcp.tool.called",
+      "trace_id": "5af7651916cd43dd8448eb211c80aabb",
+      "span_id": "2222222222222222",
+      "parent_span_id": "1111111111111111",
+      "data": {"tool_name": "search"}
+    },
+    {
+      "id": "0193a2b1-aa00-7000-8000-000000000005",
+      "version": "1.1",
+      "timestamp": "2025-05-05T12:00:01.200Z",
+      "agent_id": "worker-1",
+      "instance_id": "0193a2b1-aa00-7000-8000-000000000006",
+      "protocol": "llm",
+      "event_type": "llm.completion.response",
+      "trace_id": "5af7651916cd43dd8448eb211c80aabb",
+      "span_id": "3333333333333333",
+      "parent_span_id": "2222222222222222",
+      "duration_ms": 700,
+      "data": {"provider": "openai", "model": "gpt-4o-mini"},
+      "tokens": {"prompt": 1000, "completion": 200, "total": 1200}
+    },
+    {
+      "id": "0193a2b1-aa00-7000-8000-000000000007",
+      "version": "1.1",
+      "timestamp": "2025-05-05T12:00:01.500Z",
+      "agent_id": "worker-1",
+      "instance_id": "0193a2b1-aa00-7000-8000-000000000008",
+      "protocol": "ap2",
+      "event_type": "ap2.payment.initiated",
+      "trace_id": "5af7651916cd43dd8448eb211c80aabb",
+      "span_id": "4444444444444444",
+      "parent_span_id": "1111111111111111",
+      "data": {"payment_id": "p-1", "amount": 9.99, "currency": "USD"}
+    },
+    {
+      "id": "0193a2b1-aa00-7000-8000-000000000009",
+      "version": "1.1",
+      "timestamp": "2025-05-05T12:00:02.000Z",
+      "agent_id": "worker-1",
+      "instance_id": "0193a2b1-aa00-7000-8000-00000000000a",
+      "protocol": "a2a",
+      "event_type": "a2a.task.completed",
+      "trace_id": "5af7651916cd43dd8448eb211c80aabb",
+      "span_id": "5555555555555555",
+      "parent_span_id": "1111111111111111",
+      "data": {"task_id": "t-1"}
+    }
+  ]
+}

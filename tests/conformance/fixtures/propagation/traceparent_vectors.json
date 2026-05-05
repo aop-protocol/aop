@@ -1,0 +1,22 @@
+{
+  "valid": [
+    {
+      "header": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "span_id": "00f067aa0ba902b7",
+      "sampled": true
+    },
+    {
+      "header": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-00",
+      "trace_id": "0af7651916cd43dd8448eb211c80319c",
+      "span_id": "b7ad6b7169203331",
+      "sampled": false
+    }
+  ],
+  "invalid": [
+    {"header": "garbage"},
+    {"header": "ff-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"},
+    {"header": "00-00000000000000000000000000000000-00f067aa0ba902b7-01"},
+    {"header": "00-4bf92f3577b34da6a3ce929d0e0e4736-0000000000000000-01"}
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "id": "0193a2b1-3333-7000-8000-000000000001",
+  "version": "1.1",
+  "timestamp": "2025-05-05T12:00:02.000Z",
+  "agent_id": "orchestrator",
+  "instance_id": "0193a2b1-3333-7000-8000-000000000002",
+  "protocol": "a2a",
+  "event_type": "a2a.task.assigned",
+  "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+  "span_id": "00f067aa0ba90300",
+  "data": {"task_id": "task-1", "assignee": "worker-1"},
+  "links": [
+    {"trace_id": "5bf92f3577b34da6a3ce929d0e0e4737",
+     "span_id": "11f167aa0ba90201",
+     "attributes": {"relation": "follows-from"}}
+  ]
+}

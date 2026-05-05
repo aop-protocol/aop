@@ -1,0 +1,31 @@
+{
+  "must_be_registered": [
+    "mcp", "a2a", "ap2",
+    "acp", "agntcy", "anp",
+    "ag_ui", "openai_agents",
+    "feedback",
+    "http", "llm", "vectordb", "framework",
+    "db", "cache", "tcp"
+  ],
+  "must_contain_event_types": {
+    "mcp": [
+      "mcp.tool.called", "mcp.tool.completed", "mcp.tool.error",
+      "mcp.notification.sent", "mcp.elicitation.requested"
+    ],
+    "a2a": [
+      "a2a.task.assigned", "a2a.task.completed",
+      "a2a.artifact.uploaded", "a2a.agentcard.discovered"
+    ],
+    "ap2": [
+      "ap2.payment.initiated", "ap2.payment.completed",
+      "ap2.refund.initiated", "ap2.dispute.opened"
+    ],
+    "llm": [
+      "llm.completion.request", "llm.completion.response",
+      "llm.completion.error"
+    ],
+    "http": [
+      "http.client.request", "http.client.response", "http.client.error"
+    ]
+  }
+}
