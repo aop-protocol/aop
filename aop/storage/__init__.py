@@ -68,14 +68,22 @@ def create_storage(connection_string: Optional[str] = None) -> BaseStorage:
         
         elif scheme == 'postgresql' or scheme == 'postgres':
             return PostgreSQLStorage(connection_string)
-        
+
         elif scheme == 'memory':
             return InMemoryStorage()
-        
+
+        elif scheme == 'clickhouse' or scheme == 'clickhouse+secure':
+            from .clickhouse import ClickHouseStorage
+            return ClickHouseStorage(connection_string)
+
+        elif scheme == 's3':
+            from .s3 import S3ArchiveStorage
+            return S3ArchiveStorage(connection_string)
+
         else:
             raise ValueError(
                 f"Unsupported storage backend: '{scheme}'. "
-                f"Supported backends: sqlite, postgresql, memory"
+                f"Supported backends: sqlite, postgresql, clickhouse, s3, memory"
             )
             
     except ValueError:
@@ -97,3 +105,18 @@ __all__ = [
     'InMemoryStorage',
     'create_storage',
 ]
+
+
+# Re-export migration helpers / retention runner ----------------------------
+def migrate(connection_string: str, target=None):
+    """Run schema migrations on the given storage URL."""
+    from .migrations import migrate as _migrate
+    return _migrate(connection_string, target=target)
+
+
+def apply_retention(connection_string: str, *, max_age_days=None,
+                    tenant_id=None, dry_run=False):
+    """Purge events past their retention window."""
+    from .retention import apply_retention as _retention
+    return _retention(connection_string, max_age_days=max_age_days,
+                      tenant_id=tenant_id, dry_run=dry_run)
