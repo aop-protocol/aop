@@ -160,6 +160,25 @@ except ImportError:
 from .instrumentation import autoinstrument, uninstrument, list_instrumentations
 
 # ---------------------------------------------------------------------------
+# Cost intelligence (Phase 10)
+# ---------------------------------------------------------------------------
+from .pricing import (
+    PriceEntry,
+    compute_cost,
+    estimate_cost_usd,
+    register_price,
+    get_price,
+    Budget,
+    BudgetAlert,
+    BudgetExceeded,
+)
+
+# ---------------------------------------------------------------------------
+# Redaction / compliance / security (Phase 6)
+# ---------------------------------------------------------------------------
+from .redaction import redact_event, redact_value, RedactionRule
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 __all__ = [
@@ -217,4 +236,12 @@ __all__ = [
 
     # auto-instrumentation
     "autoinstrument", "uninstrument", "list_instrumentations",
+
+    # cost intelligence
+    "PriceEntry", "compute_cost", "estimate_cost_usd",
+    "register_price", "get_price",
+    "Budget", "BudgetAlert", "BudgetExceeded",
+
+    # redaction
+    "redact_event", "redact_value", "RedactionRule",
 ]
