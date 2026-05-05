@@ -112,6 +112,13 @@ from .utils import (
 from .adapters.mcp import MCPAdapter
 from .adapters.a2a import A2AAdapter
 from .adapters.ap2 import AP2Adapter
+from .adapters.acp import ACPAdapter
+from .adapters.agntcy import AGNTCYAdapter
+from .adapters.anp import ANPAdapter
+from .adapters.ag_ui import AGUIAdapter
+from .adapters.openai_agents import OpenAIAgentsAdapter
+from .adapters.feedback import FeedbackAdapter
+from .adapters.generic import GenericAdapter
 from .trace import trace_context
 from .span import Span, start_span, current_span
 
@@ -193,6 +200,8 @@ __all__ = [
 
     # adapters / spans
     "MCPAdapter", "A2AAdapter", "AP2Adapter",
+    "ACPAdapter", "AGNTCYAdapter", "ANPAdapter",
+    "AGUIAdapter", "OpenAIAgentsAdapter", "FeedbackAdapter", "GenericAdapter",
     "trace_context", "Span", "start_span", "current_span",
 
     # propagation

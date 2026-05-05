@@ -225,3 +225,90 @@ class A2AAdapter(BaseAdapter):
         )
         
         return self._log_and_return_handle(event)
+    # ------------------------------------------------------------------
+    # Extended (Phase 3): artifacts, agent cards, push subscriptions
+    # ------------------------------------------------------------------
+    def log_artifact_uploaded(
+        self,
+        agent_id: str,
+        artifact_id: str,
+        size_bytes: int,
+        mime_type: Optional[str] = None,
+        url: Optional[str] = None,
+        correlation_id: Optional[str] = None,
+        parent_id: Optional[str] = None,
+    ) -> EventHandle:
+        data: Dict[str, Any] = {
+            'artifact_id': artifact_id,
+            'size_bytes': size_bytes,
+        }
+        if mime_type is not None:
+            data['mime_type'] = mime_type
+        if url is not None:
+            data['url'] = url
+        ev = self._build_event(
+            agent_id=agent_id, event_type='a2a.artifact.uploaded', data=data,
+            correlation_id=correlation_id, parent_id=parent_id,
+        )
+        return self._log_and_return_handle(ev)
+
+    def log_artifact_downloaded(
+        self,
+        agent_id: str,
+        artifact_id: str,
+        size_bytes: int,
+        correlation_id: Optional[str] = None,
+        parent_id: Optional[str] = None,
+    ) -> EventHandle:
+        ev = self._build_event(
+            agent_id=agent_id, event_type='a2a.artifact.downloaded',
+            data={'artifact_id': artifact_id, 'size_bytes': size_bytes},
+            correlation_id=correlation_id, parent_id=parent_id,
+        )
+        return self._log_and_return_handle(ev)
+
+    def log_agent_card_discovered(
+        self,
+        agent_id: str,
+        peer_agent_id: str,
+        agent_card: Dict[str, Any],
+        correlation_id: Optional[str] = None,
+    ) -> EventHandle:
+        ev = self._build_event(
+            agent_id=agent_id, event_type='a2a.agentcard.discovered',
+            data={'peer_agent_id': peer_agent_id, 'agent_card': agent_card},
+            correlation_id=correlation_id,
+        )
+        return self._log_and_return_handle(ev)
+
+    def log_push_subscribed(
+        self,
+        agent_id: str,
+        peer_agent_id: str,
+        webhook_url: str,
+        events: list,
+        correlation_id: Optional[str] = None,
+    ) -> EventHandle:
+        ev = self._build_event(
+            agent_id=agent_id, event_type='a2a.push.subscribed',
+            data={'peer_agent_id': peer_agent_id, 'webhook_url': webhook_url, 'events': events},
+            correlation_id=correlation_id,
+        )
+        return self._log_and_return_handle(ev)
+
+    def log_push_delivered(
+        self,
+        agent_id: str,
+        peer_agent_id: str,
+        notification_id: str,
+        delivered_event_type: str,
+        correlation_id: Optional[str] = None,
+        parent_id: Optional[str] = None,
+    ) -> EventHandle:
+        ev = self._build_event(
+            agent_id=agent_id, event_type='a2a.push.delivered',
+            data={'peer_agent_id': peer_agent_id, 'notification_id': notification_id,
+                  'delivered_event_type': delivered_event_type},
+            correlation_id=correlation_id, parent_id=parent_id,
+        )
+        return self._log_and_return_handle(ev)

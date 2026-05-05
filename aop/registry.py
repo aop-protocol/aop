@@ -354,6 +354,99 @@ register_protocol(ProtocolSpec(
 ))
 
 
+# ---------------------------------------------------------------------------
+# Phase 3 protocol adapters
+# ---------------------------------------------------------------------------
+
+register_protocol(ProtocolSpec(
+    name="acp",
+    version="0.1",
+    description="IBM Agent Communication Protocol — discovery, REST invocation, streaming",
+    event_types=frozenset({
+        "acp.agent.discovered",
+        "acp.invocation.started",
+        "acp.invocation.completed",
+        "acp.invocation.failed",
+        "acp.stream.chunk",
+        "acp.stream.completed",
+    }),
+))
+
+register_protocol(ProtocolSpec(
+    name="agntcy",
+    version="0.1",
+    description="AGNTCY / Internet of Agents — DID identity, directory, connections",
+    event_types=frozenset({
+        "agntcy.identity.resolved",
+        "agntcy.directory.lookup",
+        "agntcy.directory.published",
+        "agntcy.connection.opened",
+        "agntcy.connection.closed",
+        "agntcy.capability.granted",
+        "agntcy.capability.revoked",
+    }),
+))
+
+register_protocol(ProtocolSpec(
+    name="anp",
+    version="0.1",
+    description="Agent Network Protocol — DID-based decentralized agent comms",
+    event_types=frozenset({
+        "anp.handshake.started",
+        "anp.handshake.completed",
+        "anp.handshake.failed",
+        "anp.message.signed",
+        "anp.message.verified",
+        "anp.message.rejected",
+        "anp.route.resolved",
+    }),
+))
+
+register_protocol(ProtocolSpec(
+    name="ag_ui",
+    version="0.1",
+    description="Agent-User-Interface — streaming deltas, approvals, sessions",
+    event_types=frozenset({
+        "ag_ui.stream.text_delta",
+        "ag_ui.stream.tool_call_delta",
+        "ag_ui.approval.requested",
+        "ag_ui.approval.granted",
+        "ag_ui.approval.denied",
+        "ag_ui.session.started",
+        "ag_ui.session.ended",
+    }),
+))
+
+register_protocol(ProtocolSpec(
+    name="openai_agents",
+    version="1.0",
+    description="OpenAI Agents SDK / Responses API — runs, handoffs, tools",
+    event_types=frozenset({
+        "openai_agents.run.started",
+        "openai_agents.run.completed",
+        "openai_agents.run.failed",
+        "openai_agents.handoff",
+        "openai_agents.tool.invoked",
+        "openai_agents.tool.result",
+        "openai_agents.message.output",
+    }),
+))
+
+register_protocol(ProtocolSpec(
+    name="feedback",
+    version="0.1",
+    description="User feedback / eval signals attached to traces",
+    event_types=frozenset({
+        "feedback.thumb.up",
+        "feedback.thumb.down",
+        "feedback.thumb.neutral",
+        "feedback.score.recorded",
+        "feedback.edit.applied",
+        "feedback.escalation.requested",
+    }),
+))
+
+
 __all__ = [
     "ProtocolSpec",
     "register_protocol",

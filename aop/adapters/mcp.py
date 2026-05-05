@@ -513,3 +513,109 @@ class MCPAdapter(BaseAdapter):
         params.pop('self', None)
 
         return params
+    # ------------------------------------------------------------------
+    # Extended (Phase 3): notifications, subscriptions, elicitation, completion
+    # ------------------------------------------------------------------
+    def log_notification_sent(
+        self,
+        agent_id: str,
+        notification_method: str,
+        params: Optional[Dict[str, Any]] = None,
+        correlation_id: Optional[str] = None,
+    ) -> EventHandle:
+        ev = self._build_event(
+            agent_id=agent_id, event_type='mcp.notification.sent',
+            data={'notification_method': notification_method, 'params': params or {}},
+            correlation_id=correlation_id,
+        )
+        return self._log_and_return_handle(ev)
+
+    def log_subscription_created(
+        self,
+        agent_id: str,
+        subscription_id: str,
+        resource_uri: str,
+        correlation_id: Optional[str] = None,
+    ) -> EventHandle:
+        ev = self._build_event(
+            agent_id=agent_id, event_type='mcp.subscription.created',
+            data={'subscription_id': subscription_id, 'resource_uri': resource_uri},
+            correlation_id=correlation_id,
+        )
+        return self._log_and_return_handle(ev)
+
+    def log_subscription_cancelled(
+        self,
+        agent_id: str,
+        subscription_id: str,
+        correlation_id: Optional[str] = None,
+        parent_id: Optional[str] = None,
+    ) -> EventHandle:
+        ev = self._build_event(
+            agent_id=agent_id, event_type='mcp.subscription.cancelled',
+            data={'subscription_id': subscription_id},
+            correlation_id=correlation_id, parent_id=parent_id,
+        )
+        return self._log_and_return_handle(ev)
+
+    def log_elicitation_requested(
+        self,
+        agent_id: str,
+        elicitation_id: str,
+        prompt: str,
+        schema: Optional[Dict[str, Any]] = None,
+        correlation_id: Optional[str] = None,
+    ) -> EventHandle:
+        ev = self._build_event(
+            agent_id=agent_id, event_type='mcp.elicitation.requested',
+            data={'elicitation_id': elicitation_id, 'prompt': prompt, 'schema': schema},
+            correlation_id=correlation_id,
+        )
+        return self._log_and_return_handle(ev)
+
+    def log_elicitation_responded(
+        self,
+        agent_id: str,
+        elicitation_id: str,
+        response: Any,
+        correlation_id: Optional[str] = None,
+        parent_id: Optional[str] = None,
+    ) -> EventHandle:
+        ev = self._build_event(
+            agent_id=agent_id, event_type='mcp.elicitation.responded',
+            data={'elicitation_id': elicitation_id, 'response': response},
+            correlation_id=correlation_id, parent_id=parent_id,
+        )
+        return self._log_and_return_handle(ev)
+
+    def log_completion_requested(
+        self,
+        agent_id: str,
+        completion_id: str,
+        argument_name: str,
+        partial_value: str,
+        correlation_id: Optional[str] = None,
+    ) -> EventHandle:
+        ev = self._build_event(
+            agent_id=agent_id, event_type='mcp.completion.requested',
+            data={'completion_id': completion_id, 'argument_name': argument_name,
+                  'partial_value': partial_value},
+            correlation_id=correlation_id,
+        )
+        return self._log_and_return_handle(ev)
+
+    def log_completion_completed(
+        self,
+        agent_id: str,
+        completion_id: str,
+        completions: list,
+        correlation_id: Optional[str] = None,
+        parent_id: Optional[str] = None,
+    ) -> EventHandle:
+        ev = self._build_event(
+            agent_id=agent_id, event_type='mcp.completion.completed',
+            data={'completion_id': completion_id,
+                  'completions': completions, 'count': len(completions)},
+            correlation_id=correlation_id, parent_id=parent_id,
+        )
+        return self._log_and_return_handle(ev)

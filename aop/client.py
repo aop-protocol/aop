@@ -363,6 +363,55 @@ class AOPClient:
             self._ap2_adapter = AP2Adapter(self)
         return self._ap2_adapter
 
+    # Phase 3 protocol adapters --------------------------------------------
+    @property
+    def acp(self) -> Any:
+        """ACP (IBM Agent Communication Protocol) adapter."""
+        if not hasattr(self, '_acp_adapter'):
+            from .adapters.acp import ACPAdapter
+            self._acp_adapter = ACPAdapter(self)
+        return self._acp_adapter
+
+    @property
+    def agntcy(self) -> Any:
+        """AGNTCY (Internet of Agents) adapter."""
+        if not hasattr(self, '_agntcy_adapter'):
+            from .adapters.agntcy import AGNTCYAdapter
+            self._agntcy_adapter = AGNTCYAdapter(self)
+        return self._agntcy_adapter
+
+    @property
+    def anp(self) -> Any:
+        """ANP (Agent Network Protocol) adapter."""
+        if not hasattr(self, '_anp_adapter'):
+            from .adapters.anp import ANPAdapter
+            self._anp_adapter = ANPAdapter(self)
+        return self._anp_adapter
+
+    @property
+    def ag_ui(self) -> Any:
+        """AG-UI (Agent-User-Interface) adapter."""
+        if not hasattr(self, '_ag_ui_adapter'):
+            from .adapters.ag_ui import AGUIAdapter
+            self._ag_ui_adapter = AGUIAdapter(self)
+        return self._ag_ui_adapter
+
+    @property
+    def openai_agents(self) -> Any:
+        """OpenAI Agents SDK adapter."""
+        if not hasattr(self, '_openai_agents_adapter'):
+            from .adapters.openai_agents import OpenAIAgentsAdapter
+            self._openai_agents_adapter = OpenAIAgentsAdapter(self)
+        return self._openai_agents_adapter
+
+    @property
+    def feedback(self) -> Any:
+        """User feedback / eval signals adapter."""
+        if not hasattr(self, '_feedback_adapter'):
+            from .adapters.feedback import FeedbackAdapter
+            self._feedback_adapter = FeedbackAdapter(self)
+        return self._feedback_adapter
+
     def start_span(
         self,
         name: str,

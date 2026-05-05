@@ -195,3 +195,87 @@ class AP2Adapter(BaseAdapter):
         )
         
         return self._log_and_return_handle(event)
+    # ------------------------------------------------------------------
+    # Extended (Phase 3): refunds, disputes, intent resolution
+    # ------------------------------------------------------------------
+    def log_refund_initiated(
+        self,
+        agent_id: str,
+        payment_id: str,
+        refund_id: str,
+        amount: float,
+        currency: str,
+        reason: Optional[str] = None,
+        correlation_id: Optional[str] = None,
+        parent_id: Optional[str] = None,
+    ) -> EventHandle:
+        ev = self._build_event(
+            agent_id=agent_id, event_type='ap2.refund.initiated',
+            data={'payment_id': payment_id, 'refund_id': refund_id,
+                  'amount': amount, 'currency': currency, 'reason': reason},
+            correlation_id=correlation_id, parent_id=parent_id,
+        )
+        return self._log_and_return_handle(ev)
+
+    def log_refund_completed(
+        self,
+        agent_id: str,
+        refund_id: str,
+        transaction_id: str,
+        correlation_id: Optional[str] = None,
+        parent_id: Optional[str] = None,
+    ) -> EventHandle:
+        ev = self._build_event(
+            agent_id=agent_id, event_type='ap2.refund.completed',
+            data={'refund_id': refund_id, 'transaction_id': transaction_id},
+            correlation_id=correlation_id, parent_id=parent_id,
+        )
+        return self._log_and_return_handle(ev)
+
+    def log_dispute_opened(
+        self,
+        agent_id: str,
+        payment_id: str,
+        dispute_id: str,
+        reason: str,
+        amount: float,
+        correlation_id: Optional[str] = None,
+    ) -> EventHandle:
+        ev = self._build_event(
+            agent_id=agent_id, event_type='ap2.dispute.opened',
+            data={'payment_id': payment_id, 'dispute_id': dispute_id,
+                  'reason': reason, 'amount': amount},
+            severity='warn',
+            correlation_id=correlation_id,
+        )
+        return self._log_and_return_handle(ev)
+
+    def log_dispute_resolved(
+        self,
+        agent_id: str,
+        dispute_id: str,
+        resolution: str,
+        correlation_id: Optional[str] = None,
+        parent_id: Optional[str] = None,
+    ) -> EventHandle:
+        ev = self._build_event(
+            agent_id=agent_id, event_type='ap2.dispute.resolved',
+            data={'dispute_id': dispute_id, 'resolution': resolution},
+            correlation_id=correlation_id, parent_id=parent_id,
+        )
+        return self._log_and_return_handle(ev)
+
+    def log_intent_resolved(
+        self,
+        agent_id: str,
+        intent_id: str,
+        resolved_payment_method: str,
+        correlation_id: Optional[str] = None,
+    ) -> EventHandle:
+        ev = self._build_event(
+            agent_id=agent_id, event_type='ap2.intent.resolved',
+            data={'intent_id': intent_id,
+                  'resolved_payment_method': resolved_payment_method},
+            correlation_id=correlation_id,
+        )
+        return self._log_and_return_handle(ev)
