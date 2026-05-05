@@ -250,6 +250,110 @@ register_protocol(ProtocolSpec(
 ))
 
 
+# ---------------------------------------------------------------------------
+# Built-in observability namespaces (Phase 2 + Phase 3)
+# ---------------------------------------------------------------------------
+# These cover the events emitted by the auto-instrumentation modules and by
+# Phase 3 protocol adapters (ACP, AGNTCY, ANP, AG-UI, OpenAI Agents, feedback).
+
+register_protocol(ProtocolSpec(
+    name="http",
+    description="Outgoing HTTP client traffic (auto-instrumented)",
+    event_types=frozenset({
+        "http.client.request",
+        "http.client.response",
+        "http.client.error",
+        "http.server.request",
+        "http.server.response",
+        "http.server.error",
+    }),
+))
+
+register_protocol(ProtocolSpec(
+    name="llm",
+    description="LLM provider API calls (auto-instrumented)",
+    event_types=frozenset({
+        "llm.completion.request",
+        "llm.completion.response",
+        "llm.completion.error",
+        "llm.responses.request",
+        "llm.responses.response",
+        "llm.responses.error",
+        "llm.embedding.request",
+        "llm.embedding.response",
+        "llm.embedding.error",
+        "llm.chat.request", "llm.chat.response", "llm.chat.error",
+        "llm.generate.request", "llm.generate.response", "llm.generate.error",
+        "llm.embeddings.request", "llm.embeddings.response", "llm.embeddings.error",
+    }),
+))
+
+register_protocol(ProtocolSpec(
+    name="vectordb",
+    description="Vector DB queries (auto-instrumented)",
+    event_types=frozenset({
+        "vectordb.query.request",
+        "vectordb.query.response",
+        "vectordb.query.error",
+        "vectordb.add.request", "vectordb.add.response", "vectordb.add.error",
+        "vectordb.get.request", "vectordb.get.response", "vectordb.get.error",
+        "vectordb.upsert.request", "vectordb.upsert.response", "vectordb.upsert.error",
+        "vectordb.search.request", "vectordb.search.response", "vectordb.search.error",
+        "vectordb.scroll.request", "vectordb.scroll.response", "vectordb.scroll.error",
+        "vectordb.query_points.request", "vectordb.query_points.response", "vectordb.query_points.error",
+    }),
+))
+
+register_protocol(ProtocolSpec(
+    name="framework",
+    description="Agent framework callbacks (LangChain, LangGraph, CrewAI, AutoGen, ...)",
+    event_types=frozenset({
+        # langchain
+        "framework.langchain.llm.start", "framework.langchain.llm.end", "framework.langchain.llm.error",
+        "framework.langchain.chain.start", "framework.langchain.chain.end", "framework.langchain.chain.error",
+        "framework.langchain.tool.start", "framework.langchain.tool.end", "framework.langchain.tool.error",
+        "framework.langchain.agent.action", "framework.langchain.agent.finish",
+        # langgraph
+        "framework.langgraph.invoke.start", "framework.langgraph.invoke.end", "framework.langgraph.invoke.error",
+        # crewai
+        "framework.crewai.crew.kickoff.start", "framework.crewai.crew.kickoff.end", "framework.crewai.crew.kickoff.error",
+        "framework.crewai.task.start", "framework.crewai.task.end", "framework.crewai.task.error",
+        # autogen
+        "framework.autogen.send.start", "framework.autogen.send.end", "framework.autogen.send.error",
+        "framework.autogen.receive.start", "framework.autogen.receive.end", "framework.autogen.receive.error",
+        "framework.autogen.generate_reply.start", "framework.autogen.generate_reply.end", "framework.autogen.generate_reply.error",
+        # llamaindex
+        "framework.llamaindex.query.start", "framework.llamaindex.query.end", "framework.llamaindex.query.error",
+        # semantic kernel
+        "framework.semantic_kernel.invoke.start", "framework.semantic_kernel.invoke.end", "framework.semantic_kernel.invoke.error",
+    }),
+))
+
+register_protocol(ProtocolSpec(
+    name="db",
+    description="Relational DB queries (auto-instrumented)",
+    event_types=frozenset({
+        "db.query.completed", "db.query.error", "db.query.started",
+    }),
+))
+
+register_protocol(ProtocolSpec(
+    name="cache",
+    description="Cache / KV-store commands (auto-instrumented)",
+    event_types=frozenset({
+        "cache.command.completed", "cache.command.error",
+    }),
+))
+
+register_protocol(ProtocolSpec(
+    name="tcp",
+    description="Raw TCP connection events (opt-in, socket fallback)",
+    event_types=frozenset({
+        "tcp.connection.opened", "tcp.connection.closed", "tcp.connection.error",
+    }),
+))
+
+
 __all__ = [
     "ProtocolSpec",
     "register_protocol",
