@@ -810,3 +810,103 @@ def run_server(storage: str = "sqlite:///aop_events.db", port: int = 8000, open_
         port=port,
         log_level="info"
     )
+
+
+# =============================================================================
+# Phase 7: SSE real-time push, auth middleware, ingestion endpoint
+# =============================================================================
+
+from fastapi import Depends, Header, Request, status
+from fastapi.responses import StreamingResponse, JSONResponse
+import os as _os
+from typing import Optional as _Optional
+
+from .sse import hub as _sse_hub, publish as _sse_publish
+
+# ----- auth dependency -------------------------------------------------------
+
+# Bearer tokens are loaded from the AOP_DASHBOARD_TOKENS env var (comma list)
+# OR a single AOP_DASHBOARD_TOKEN. If neither is set, auth is disabled
+# (development mode).
+
+def _allowed_tokens() -> set:
+    multi = _os.environ.get("AOP_DASHBOARD_TOKENS", "")
+    single = _os.environ.get("AOP_DASHBOARD_TOKEN", "")
+    out = set()
+    if multi:
+        out.update(t.strip() for t in multi.split(",") if t.strip())
+    if single:
+        out.add(single)
+    return out
+
+
+def require_auth(authorization: _Optional[str] = Header(default=None)):
+    """FastAPI dependency that enforces bearer-token auth when configured."""
+    tokens = _allowed_tokens()
+    if not tokens:
+        return  # auth disabled
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="missing bearer token")
+    if authorization.split(" ", 1)[1] not in tokens:
+        raise HTTPException(status_code=403, detail="invalid token")
+
+
+# ----- SSE stream -------------------------------------------------------------
+
+@app.get("/api/stream")
+async def stream_events(_=Depends(require_auth)):
+    """Server-Sent Events stream of incoming events.
+
+    Replaces the polling WebSocket with sub-second push. Connect with
+    EventSource('/api/stream'); each message arrives as ``event: aop`` /
+    ``data: <json>``.
+    """
+    h = _sse_hub()
+    q = h.subscribe()
+    return StreamingResponse(h.stream(q), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache",
+                                      "Connection": "keep-alive",
+                                      "X-Accel-Buffering": "no"})
+
+
+# ----- Remote ingestion endpoint ---------------------------------------------
+
+@app.post("/api/ingest", dependencies=[Depends(require_auth)])
+async def ingest_events(request: Request):
+    """Accept a batch of events from remote agents.
+
+    Body: {"schema_version": "1.1", "events": [<AOPEvent>, ...]}
+    Each event is validated, redacted (if AOP_REDACT=1), persisted, and
+    pushed to the SSE hub.
+    """
+    payload = await request.json()
+    events = payload.get("events") if isinstance(payload, dict) else None
+    if not isinstance(events, list):
+        raise HTTPException(status_code=400, detail="expected events to be a list")
+
+    redact_enabled = _os.environ.get("AOP_REDACT", "0") == "1"
+    accepted = 0
+    dropped = 0
+    for ev in events:
+        try:
+            if redact_enabled:
+                from aop.redaction import redact_event as _red
+                ev = _red(ev)
+            if client is not None:
+                client.log_event(ev, validate=False, auto_build=False)
+            _sse_publish(ev)
+            accepted += 1
+        except Exception:
+            dropped += 1
+    return {"accepted": accepted, "dropped": dropped}
+
+
+# ----- /api/feed: thin polling fallback for stream-incompatible clients ------
+
+@app.get("/api/feed")
+def feed_recent(limit: int = Query(50, le=500),
+                _=Depends(require_auth)):
+    """Most recent events. For real-time, use /api/stream."""
+    if client is None:
+        return []
+    return client.query(limit=limit)

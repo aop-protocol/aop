@@ -491,11 +491,16 @@ class AOPClient:
         return trace_context(correlation_id)
     
     def _ship_to_transport(self, event: Dict[str, Any]) -> None:
-        """Best-effort ship to the configured remote transport (if any)."""
-        if self._transport is None:
-            return
+        """Best-effort ship to the configured remote transport (if any),
+        and to the in-process SSE hub for live dashboard streaming."""
+        if self._transport is not None:
+            try:
+                self._transport.export([event])
+            except Exception:
+                pass
         try:
-            self._transport.export([event])
+            from .dashboard.sse import publish as _sse_publish
+            _sse_publish(event)
         except Exception:
             pass
 
