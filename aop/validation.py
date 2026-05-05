@@ -1,26 +1,36 @@
 """
 AOP Event Validation
-Contains validation logic for AOP events to ensure specification compliance.
+Validation logic for AOP events to ensure specification compliance.
+
+v1.1: Validation now consults the protocol registry instead of a hard-coded
+list of three protocols. Events with version "1.0" are still accepted; new
+events are written with version "1.1" by default. Optional v1.1 fields
+(``trace_id``, ``span_id``, ``parent_span_id``, ``resource``, ``links``,
+``attributes``, ``tokens``, ``cost``) are validated only when present.
 """
 
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any
 
-from .types import (
-    VERSION,
-    SUPPORTED_PROTOCOLS,
-    ALL_EVENT_TYPES,
-    AOPEvent
-)
+from .types import VERSION
 from .exceptions import AOPValidationError
+from .registry import (
+    supported_protocols,
+    all_event_types,
+    is_protocol_registered,
+    get_protocol,
+)
 from .utils import (
     validate_uuid,
     validate_timestamp,
-    validate_protocol,
     validate_event_type_format,
-    validate_severity
+    validate_severity,
+    validate_trace_id,
+    validate_span_id,
 )
 
+# Accepted spec versions. v1.0 retained for back-compat.
+ACCEPTED_VERSIONS = {"1.0", "1.1"}
 
 # ============================================================================
 # REQUIRED FIELDS VALIDATION
@@ -33,33 +43,17 @@ REQUIRED_FIELDS = [
     'agent_id',
     'instance_id',
     'protocol',
-    'event_type'
+    'event_type',
 ]
 
 
 def validate_required_fields(event: Dict[str, Any]) -> None:
-    """
-    Validate that all required fields are present in the event.
-    
-    Required fields:
-    - id, version, timestamp, agent_id, instance_id, protocol, event_type
-    
-    Args:
-        event: Event dictionary to validate
-        
-    Raises:
-        AOPValidationError: If any required field is missing
-    """
-    missing_fields = []
-    
-    for field in REQUIRED_FIELDS:
-        if field not in event or event[field] is None:
-            missing_fields.append(field)
-    
+    """Ensure all v1.0 required fields are present."""
+    missing_fields = [f for f in REQUIRED_FIELDS if f not in event or event[f] is None]
     if missing_fields:
         raise AOPValidationError(
             f"Missing required fields: {', '.join(missing_fields)}",
-            context={'missing_fields': missing_fields}
+            context={'missing_fields': missing_fields},
         )
 
 
@@ -67,352 +61,281 @@ def validate_required_fields(event: Dict[str, Any]) -> None:
 # FIELD TYPE VALIDATION
 # ============================================================================
 
+
 def validate_field_types(event: Dict[str, Any]) -> None:
-    """
-    Validate that all fields have the correct data types.
-    
-    Args:
-        event: Event dictionary to validate
-        
-    Raises:
-        AOPValidationError: If any field has incorrect type
-    """
-    # String fields
+    """Type-check every field that is present."""
     string_fields = [
         'id', 'version', 'timestamp', 'agent_id', 'instance_id',
-        'protocol', 'event_type', 'correlation_id', 'parent_id', 'severity'
+        'protocol', 'event_type', 'correlation_id', 'parent_id', 'severity',
+        # v1.1
+        'trace_id', 'span_id', 'parent_span_id',
     ]
-    
     for field in string_fields:
         if field in event and event[field] is not None:
             if not isinstance(event[field], str):
                 raise AOPValidationError(
                     f"Field '{field}' must be a string",
-                    field=field,
-                    value=type(event[field]).__name__
+                    field=field, value=type(event[field]).__name__,
                 )
-    
-    # Integer fields
+
     if 'duration_ms' in event and event['duration_ms'] is not None:
-        if not isinstance(event['duration_ms'], int):
+        if not isinstance(event['duration_ms'], (int, float)):
             raise AOPValidationError(
-                "Field 'duration_ms' must be an integer",
-                field='duration_ms',
-                value=type(event['duration_ms']).__name__
+                "Field 'duration_ms' must be a number",
+                field='duration_ms', value=type(event['duration_ms']).__name__,
             )
-    
-    # Dict fields
-    dict_fields = ['data', 'metadata', 'error']
+
+    dict_fields = ['data', 'metadata', 'error', 'resource', 'attributes', 'tokens', 'cost']
     for field in dict_fields:
         if field in event and event[field] is not None:
             if not isinstance(event[field], dict):
                 raise AOPValidationError(
                     f"Field '{field}' must be a dictionary",
-                    field=field,
-                    value=type(event[field]).__name__
+                    field=field, value=type(event[field]).__name__,
                 )
+
+    if 'links' in event and event['links'] is not None:
+        if not isinstance(event['links'], list):
+            raise AOPValidationError(
+                "Field 'links' must be a list",
+                field='links', value=type(event['links']).__name__,
+            )
 
 
 # ============================================================================
 # FIELD FORMAT VALIDATION
 # ============================================================================
 
+
 def validate_field_formats(event: Dict[str, Any]) -> None:
-    """
-    Validate that all fields follow the correct format.
-    
-    Args:
-        event: Event dictionary to validate
-        
-    Raises:
-        AOPValidationError: If any field has invalid format
-    """
-    # Validate ID (UUID)
     if not validate_uuid(event['id']):
         raise AOPValidationError(
             "Field 'id' must be a valid UUID",
-            field='id',
-            value=event['id']
+            field='id', value=event['id'],
         )
-    
-    # Validate version
-    if event['version'] != VERSION:
+
+    if event['version'] not in ACCEPTED_VERSIONS:
         raise AOPValidationError(
-            f"Field 'version' must be '{VERSION}'",
-            field='version',
-            value=event['version']
+            f"Field 'version' must be one of {sorted(ACCEPTED_VERSIONS)}",
+            field='version', value=event['version'],
         )
-    
-    # Validate timestamp
+
     if not validate_timestamp(event['timestamp']):
         raise AOPValidationError(
             "Field 'timestamp' must be a valid ISO 8601 timestamp",
-            field='timestamp',
-            value=event['timestamp']
+            field='timestamp', value=event['timestamp'],
         )
-    
-    # Validate instance_id (UUID)
+
     if not validate_uuid(event['instance_id']):
         raise AOPValidationError(
             "Field 'instance_id' must be a valid UUID",
-            field='instance_id',
-            value=event['instance_id']
+            field='instance_id', value=event['instance_id'],
         )
-    
-    # Validate protocol
-    if not validate_protocol(event['protocol']):
+
+    # Protocol must be registered (open-set check, not the legacy list)
+    protocol = event['protocol']
+    if not is_protocol_registered(protocol):
         raise AOPValidationError(
-            f"Field 'protocol' must be one of: {', '.join(SUPPORTED_PROTOCOLS)}",
-            field='protocol',
-            value=event['protocol']
+            f"Field 'protocol' is not registered. Known: {sorted(supported_protocols())}",
+            field='protocol', value=protocol,
         )
-    
-    # Validate event_type format
+
     if not validate_event_type_format(event['event_type']):
         raise AOPValidationError(
             "Field 'event_type' must follow format: protocol.category.action",
-            field='event_type',
-            value=event['event_type']
+            field='event_type', value=event['event_type'],
         )
-    
-    # Validate severity if present
+
     if 'severity' in event and event['severity'] is not None:
         if not validate_severity(event['severity']):
             raise AOPValidationError(
                 "Field 'severity' must be one of: error, warn, info, debug",
-                field='severity',
-                value=event['severity']
+                field='severity', value=event['severity'],
             )
+
+    # v1.1 trace context format
+    if 'trace_id' in event and event['trace_id'] is not None:
+        if not validate_trace_id(event['trace_id']):
+            raise AOPValidationError(
+                "Field 'trace_id' must be a 32-char lowercase hex (W3C TraceContext)",
+                field='trace_id', value=event['trace_id'],
+            )
+    for f in ('span_id', 'parent_span_id'):
+        if f in event and event[f] is not None:
+            if not validate_span_id(event[f]):
+                raise AOPValidationError(
+                    f"Field '{f}' must be a 16-char lowercase hex (W3C TraceContext)",
+                    field=f, value=event[f],
+                )
 
 
 # ============================================================================
 # FIELD CONSTRAINTS VALIDATION
 # ============================================================================
 
+
 def validate_field_constraints(event: Dict[str, Any]) -> None:
-    """
-    Validate that all fields meet their constraints.
-    
-    Args:
-        event: Event dictionary to validate
-        
-    Raises:
-        AOPValidationError: If any constraint is violated
-    """
-    # agent_id: 1-255 characters, alphanumeric + hyphens/underscores
     agent_id = event['agent_id']
     if not (1 <= len(agent_id) <= 255):
         raise AOPValidationError(
             "Field 'agent_id' must be between 1 and 255 characters",
-            field='agent_id',
-            value=f"length={len(agent_id)}"
+            field='agent_id', value=f"length={len(agent_id)}",
         )
-    
-    if not re.match(r'^[a-zA-Z0-9_-]+$', agent_id):
+    if not re.match(r'^[a-zA-Z0-9_\-:.]+$', agent_id):
         raise AOPValidationError(
-            "Field 'agent_id' must contain only alphanumeric characters, hyphens, and underscores",
-            field='agent_id',
-            value=agent_id
+            "Field 'agent_id' must contain only alphanumerics, hyphens, underscores, dots, or colons",
+            field='agent_id', value=agent_id,
         )
-    
-    # duration_ms: must be >= 0
+
     if 'duration_ms' in event and event['duration_ms'] is not None:
         if event['duration_ms'] < 0:
             raise AOPValidationError(
                 "Field 'duration_ms' must be >= 0",
-                field='duration_ms',
-                value=event['duration_ms']
+                field='duration_ms', value=event['duration_ms'],
             )
-    
-    # correlation_id: if present, must not be empty
-    if 'correlation_id' in event and event['correlation_id'] is not None:
-        if not event['correlation_id'].strip():
-            raise AOPValidationError(
-                "Field 'correlation_id' must not be empty",
-                field='correlation_id'
-            )
-    
-    # parent_id: if present, must not be empty
-    if 'parent_id' in event and event['parent_id'] is not None:
-        if not event['parent_id'].strip():
-            raise AOPValidationError(
-                "Field 'parent_id' must not be empty",
-                field='parent_id'
-            )
+
+    for f in ('correlation_id', 'parent_id'):
+        if f in event and event[f] is not None:
+            if not str(event[f]).strip():
+                raise AOPValidationError(
+                    f"Field '{f}' must not be empty",
+                    field=f,
+                )
 
 
 # ============================================================================
 # PROTOCOL-SPECIFIC VALIDATION
 # ============================================================================
 
+
 def validate_event_type_for_protocol(event: Dict[str, Any]) -> None:
-    """
-    Validate that event_type matches the protocol.
-    
-    Rules:
-    - MCP events must start with 'mcp.'
-    - A2A events must start with 'a2a.'
-    - AP2 events must start with 'ap2.'
-    
-    Args:
-        event: Event dictionary to validate
-        
-    Raises:
-        AOPValidationError: If event_type doesn't match protocol
-    """
     protocol = event['protocol']
     event_type = event['event_type']
-    
     expected_prefix = f"{protocol}."
-    
     if not event_type.startswith(expected_prefix):
         raise AOPValidationError(
-            f"Event type '{event_type}' must start with '{expected_prefix}' for protocol '{protocol}'",
-            field='event_type',
-            value=event_type,
-            context={'protocol': protocol}
+            f"Event type {event_type!r} must start with {expected_prefix!r}",
+            field='event_type', value=event_type,
+            context={'protocol': protocol},
         )
 
 
 def validate_event_type_exists(event: Dict[str, Any]) -> None:
-    """
-    Validate that event_type is a known event type or follows custom event pattern.
-    
-    Known event types are validated against ALL_EVENT_TYPES.
-    Custom event types must follow pattern: protocol.custom.org.category.action
-    
-    Args:
-        event: Event dictionary to validate
-        
-    Raises:
-        AOPValidationError: If event_type is invalid
-    """
+    """Validate event_type either against the registry or a custom-pattern."""
     event_type = event['event_type']
-    
-    # Check if it's a known event type
-    if event_type in ALL_EVENT_TYPES:
+    if event_type in all_event_types():
         return
-    
-    # Check if it's a valid custom event type
+
     parts = event_type.split('.')
-    
-    # Custom events must have at least 5 parts: protocol.custom.org.category.action
+    # Custom: <protocol>.custom.<org>.<category>.<action> (>=5 parts)
     if len(parts) >= 5 and parts[1] == 'custom':
         return
-    
-    # Not a known type and not a valid custom type
+    # Experimental: <protocol>.x.<...>  — short escape hatch for new namespaces
+    if len(parts) >= 3 and parts[1] == 'x':
+        return
+
     raise AOPValidationError(
-        f"Unknown event type: '{event_type}'. Must be a standard event type or follow custom pattern: protocol.custom.org.category.action",
-        field='event_type',
-        value=event_type
+        f"Unknown event type: {event_type!r}. Use a registered type or "
+        "follow protocol.custom.org.category.action / protocol.x.<...> patterns.",
+        field='event_type', value=event_type,
     )
+
+
+def validate_required_data_keys(event: Dict[str, Any]) -> None:
+    """If the spec for this protocol declares required data keys, enforce them."""
+    spec = get_protocol(event['protocol'])
+    if not spec or not spec.strict_data:
+        return
+    required = spec.required_data_keys.get(event['event_type'])
+    if not required:
+        return
+    data = event.get('data') or {}
+    missing = [k for k in required if k not in data]
+    if missing:
+        raise AOPValidationError(
+            f"data is missing required keys for {event['event_type']}: {missing}",
+            field='data', context={'missing_keys': missing},
+        )
 
 
 # ============================================================================
 # ERROR FIELD VALIDATION
 # ============================================================================
 
+
 def validate_error_field(event: Dict[str, Any]) -> None:
-    """
-    Validate the error field structure if present.
-    
-    Required subfields in error:
-    - code (string)
-    - message (string)
-    
-    Optional subfields:
-    - details (dict)
-    - stack_trace (string)
-    
-    Args:
-        event: Event dictionary to validate
-        
-    Raises:
-        AOPValidationError: If error field structure is invalid
-    """
     if 'error' not in event or event['error'] is None:
         return
-    
     error = event['error']
-    
-    # Check required subfields
     if 'code' not in error or not isinstance(error['code'], str):
         raise AOPValidationError(
-            "Error field must contain 'code' (string)",
-            field='error.code'
+            "Error field must contain 'code' (string)", field='error.code',
         )
-    
     if 'message' not in error or not isinstance(error['message'], str):
         raise AOPValidationError(
-            "Error field must contain 'message' (string)",
-            field='error.message'
+            "Error field must contain 'message' (string)", field='error.message',
         )
-    
-    # Validate optional subfields if present
     if 'details' in error and error['details'] is not None:
         if not isinstance(error['details'], dict):
             raise AOPValidationError(
-                "Error field 'details' must be a dictionary",
-                field='error.details'
+                "Error field 'details' must be a dictionary", field='error.details',
             )
-    
     if 'stack_trace' in error and error['stack_trace'] is not None:
         if not isinstance(error['stack_trace'], str):
             raise AOPValidationError(
-                "Error field 'stack_trace' must be a string",
-                field='error.stack_trace'
+                "Error field 'stack_trace' must be a string", field='error.stack_trace',
             )
 
 
 # ============================================================================
-# MASTER VALIDATION FUNCTION
+# v1.1 EXTENSION FIELDS VALIDATION
 # ============================================================================
 
+
+def validate_tokens_field(event: Dict[str, Any]) -> None:
+    if 'tokens' not in event or event['tokens'] is None:
+        return
+    tokens = event['tokens']
+    for k, v in tokens.items():
+        if not isinstance(v, int) or v < 0:
+            raise AOPValidationError(
+                f"tokens.{k} must be a non-negative integer",
+                field=f'tokens.{k}', value=v,
+            )
+
+
+def validate_cost_field(event: Dict[str, Any]) -> None:
+    if 'cost' not in event or event['cost'] is None:
+        return
+    cost = event['cost']
+    if 'amount' in cost and not isinstance(cost['amount'], (int, float)):
+        raise AOPValidationError(
+            "cost.amount must be numeric", field='cost.amount', value=cost['amount'],
+        )
+    if 'amount' in cost and cost['amount'] < 0:
+        raise AOPValidationError(
+            "cost.amount must be >= 0", field='cost.amount', value=cost['amount'],
+        )
+    if 'currency' in cost and not isinstance(cost['currency'], str):
+        raise AOPValidationError(
+            "cost.currency must be a string", field='cost.currency',
+        )
+
+
+# ============================================================================
+# MASTER VALIDATION
+# ============================================================================
+
+
 def validate_event(event: Dict[str, Any]) -> None:
-    """
-    Master validation function for AOP events.
-    
-    Performs complete validation:
-    1. Required fields present
-    2. Field types correct
-    3. Field formats valid
-    4. Field constraints met
-    5. Event type matches protocol
-    6. Error field structure valid
-    
-    Args:
-        event: Event dictionary to validate
-        
-    Raises:
-        AOPValidationError: If any validation check fails
-        
-    Example:
-        >>> event = {
-        ...     'id': '01HQRS9XOP2JRBN7K01RGUWZ1W',
-        ...     'version': '1.0',
-        ...     'timestamp': '2025-10-02T10:30:45.123Z',
-        ...     'agent_id': 'my-agent',
-        ...     'instance_id': '01HQRS9XOP2JRBN7K01RGUWZ1W',
-        ...     'protocol': 'mcp',
-        ...     'event_type': 'mcp.tool.called'
-        ... }
-        >>> validate_event(event)  # Passes validation
-    """
-    # Step 1: Required fields
+    """Run the full validation pipeline on an event dict."""
     validate_required_fields(event)
-    
-    # Step 2: Field types
     validate_field_types(event)
-    
-    # Step 3: Field formats
     validate_field_formats(event)
-    
-    # Step 4: Field constraints
     validate_field_constraints(event)
-    
-    # Step 5: Protocol-specific validation
     validate_event_type_for_protocol(event)
     validate_event_type_exists(event)
-    
-    # Step 6: Error field validation
+    validate_required_data_keys(event)
     validate_error_field(event)
+    validate_tokens_field(event)
+    validate_cost_field(event)

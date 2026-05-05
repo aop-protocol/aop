@@ -127,7 +127,7 @@ class AOPClient:
                         "Event must have at least 'agent_id' and 'event_type' fields"
                     )
                 
-                # Build complete event
+                # Build complete event (forwards v1.1 fields if present)
                 event_dict = build_event(
                     agent_id=event['agent_id'],
                     event_type=event['event_type'],
@@ -139,7 +139,15 @@ class AOPClient:
                     duration_ms=event.get('duration_ms'),
                     metadata=event.get('metadata'),
                     error=event.get('error'),
-                    validate=validate
+                    trace_id=event.get('trace_id'),
+                    span_id=event.get('span_id'),
+                    parent_span_id=event.get('parent_span_id'),
+                    resource=event.get('resource'),
+                    links=event.get('links'),
+                    attributes=event.get('attributes'),
+                    tokens=event.get('tokens'),
+                    cost=event.get('cost'),
+                    validate=validate,
                 )
 
                 self.storage.log_event(event_dict)
@@ -354,6 +362,30 @@ class AOPClient:
         if not hasattr(self, '_ap2_adapter'):
             self._ap2_adapter = AP2Adapter(self)
         return self._ap2_adapter
+
+    def start_span(
+        self,
+        name: str,
+        *,
+        agent_id: str,
+        protocol: str = "mcp",
+        attributes: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        """Start an OTel-style Span attached to this client.
+
+        Returns a context-manager that emits ``<protocol>.<name>.started`` and
+        ``<protocol>.<name>.completed`` events, automatically populating
+        ``trace_id`` / ``span_id`` / ``parent_span_id`` from the active
+        SpanContext (or creating a fresh root context).
+        """
+        from .span import Span
+        return Span(
+            name=name,
+            agent_id=agent_id,
+            protocol=protocol,
+            attributes=attributes,
+            client=self,
+        )
 
     def trace(self, correlation_id: str) -> ContextManager[None]:
         """

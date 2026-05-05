@@ -32,7 +32,16 @@ def build_event(
     duration_ms: Optional[int] = None,
     metadata: Optional[Dict[str, Any]] = None,
     error: Optional[Dict[str, Any]] = None,
-    validate: bool = True
+    # v1.1 optional fields
+    trace_id: Optional[str] = None,
+    span_id: Optional[str] = None,
+    parent_span_id: Optional[str] = None,
+    resource: Optional[Dict[str, Any]] = None,
+    links: Optional[list] = None,
+    attributes: Optional[Dict[str, Any]] = None,
+    tokens: Optional[Dict[str, int]] = None,
+    cost: Optional[Dict[str, Any]] = None,
+    validate: bool = True,
 ) -> Dict[str, Any]:
     """
     Build a generic AOP event with auto-filled fields.
@@ -115,11 +124,29 @@ def build_event(
         
         if error is not None:
             event['error'] = error
-        
+
+        # v1.1 optional fields ------------------------------------------
+        if trace_id is not None:
+            event['trace_id'] = trace_id
+        if span_id is not None:
+            event['span_id'] = span_id
+        if parent_span_id is not None:
+            event['parent_span_id'] = parent_span_id
+        if resource is not None:
+            event['resource'] = resource
+        if links is not None:
+            event['links'] = links
+        if attributes is not None:
+            event['attributes'] = attributes
+        if tokens is not None:
+            event['tokens'] = tokens
+        if cost is not None:
+            event['cost'] = cost
+
         # Validate if requested
         if validate:
             validate_event(event)
-        
+
         return event
         
     except Exception as e:

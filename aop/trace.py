@@ -1,48 +1,75 @@
 """
-Trace context manager for automatic correlation ID handling.
+Trace context management — automatic correlation_id and SpanContext handling.
+
+v1.1: extends the original ``trace_context`` (correlation_id only) with
+``current_span_context`` / ``set_span_context`` — but the legacy API is fully
+preserved so existing user code keeps working.
 """
 
 from contextvars import ContextVar
-from typing import Optional, Generator
 from contextlib import contextmanager
+from typing import Generator, Optional
 
-# Thread-safe storage for current correlation ID
-_current_correlation_id: ContextVar[Optional[str]] = ContextVar('correlation_id', default=None)
+from .propagation import SpanContext
 
+# Legacy v1.0 context var ----------------------------------------------------
+_current_correlation_id: ContextVar[Optional[str]] = ContextVar(
+    'aop_correlation_id', default=None,
+)
+
+# v1.1 W3C trace context var -------------------------------------------------
+_current_span_context: ContextVar[Optional[SpanContext]] = ContextVar(
+    'aop_span_context', default=None,
+)
+
+
+# ---------------------------------------------------------------------------
+# correlation_id (legacy)
+# ---------------------------------------------------------------------------
 
 def get_current_correlation_id() -> Optional[str]:
-    """Get the current correlation ID from context."""
-    return _current_correlation_id.get()
+    cid = _current_correlation_id.get()
+    if cid:
+        return cid
+    # Fallback: derive from span context's trace_id
+    ctx = _current_span_context.get()
+    if ctx is not None:
+        return ctx.trace_id
+    return None
 
 
 def set_correlation_id(correlation_id: Optional[str]) -> None:
-    """Set the current correlation ID in context."""
     _current_correlation_id.set(correlation_id)
 
 
 @contextmanager
 def trace_context(correlation_id: str) -> Generator[None, None, None]:
-    """
-    Context manager for automatic correlation ID handling.
-    
-    All events logged within this context will automatically
-    receive the specified correlation_id.
-    
-    Args:
-        correlation_id: Correlation ID for this trace
-        
-    Example:
-        >>> with trace_context('trace-123'):
-        ...     client.mcp.log_tool_call(...)  # Auto-correlated
-        ...     client.a2a.log_task(...)       # Auto-correlated
-    """
-    # Save previous correlation ID (for nesting support)
-    previous = get_current_correlation_id()
-    
+    """Bind a correlation id for the duration of the with-block."""
+    previous = _current_correlation_id.get()
+    token = _current_correlation_id.set(correlation_id)
     try:
-        # Set new correlation ID
-        set_correlation_id(correlation_id)
         yield
     finally:
-        # Restore previous correlation ID
-        set_correlation_id(previous)
+        _current_correlation_id.reset(token)
+
+
+# ---------------------------------------------------------------------------
+# SpanContext (v1.1)
+# ---------------------------------------------------------------------------
+
+def get_current_span_context() -> Optional[SpanContext]:
+    return _current_span_context.get()
+
+
+def set_current_span_context(ctx: Optional[SpanContext]) -> None:
+    _current_span_context.set(ctx)
+
+
+@contextmanager
+def use_span_context(ctx: SpanContext) -> Generator[SpanContext, None, None]:
+    """Bind a SpanContext for the duration of the with-block."""
+    token = _current_span_context.set(ctx)
+    try:
+        yield ctx
+    finally:
+        _current_span_context.reset(token)

@@ -1,14 +1,15 @@
 """
 AOP Utility Functions
-Contains helper functions for UUID generation, timestamps, and validation.
+Helper functions for UUID generation, timestamps, validation, and W3C
+TraceContext primitives.
 """
 
+import os
+import secrets
 import uuid
 import re
 from datetime import datetime, timezone
 from typing import Optional
-
-from .types import SUPPORTED_PROTOCOLS
 
 
 # ============================================================================
@@ -155,27 +156,19 @@ def validate_timestamp(value: str) -> bool:
 
 
 def validate_protocol(value: str) -> bool:
-    """
-    Validate if a protocol value is supported.
-    
-    Valid protocols: mcp, a2a, ap2
-    
-    Args:
-        value: Protocol string to validate
-        
-    Returns:
-        bool: True if valid protocol, False otherwise
-        
-    Example:
-        >>> validate_protocol('mcp')
-        True
-        >>> validate_protocol('xyz')
-        False
+    """Validate if a protocol value is registered (via the protocol registry).
+
+    Falls back to the legacy hard-coded list of mcp/a2a/ap2 if registry
+    lookup fails (e.g. registry import order). New code should call
+    ``aop.registry.is_protocol_registered`` directly.
     """
     if not isinstance(value, str):
         return False
-    
-    return value.lower() in SUPPORTED_PROTOCOLS
+    try:
+        from .registry import is_protocol_registered
+        return is_protocol_registered(value.lower())
+    except Exception:
+        return value.lower() in {"mcp", "a2a", "ap2"}
 
 
 def validate_event_type_format(value: str) -> bool:
@@ -221,9 +214,14 @@ def validate_event_type_format(value: str) -> bool:
     if len(parts) < 3:
         return False
     
-    # First part must be valid protocol
-    if parts[0] not in SUPPORTED_PROTOCOLS:
-        return False
+    # First part must be a registered protocol
+    try:
+        from .registry import is_protocol_registered
+        if not is_protocol_registered(parts[0]):
+            return False
+    except Exception:
+        if parts[0] not in {"mcp", "a2a", "ap2"}:
+            return False
     
     # All parts must be non-empty and alphanumeric (with underscores allowed)
     for part in parts:
@@ -288,14 +286,61 @@ def truncate_string(value: str, max_length: int = 100) -> str:
 def sanitize_string(value: str) -> str:
     """
     Sanitize a string by removing control characters.
-    
+
     Useful for preventing log injection attacks.
-    
+
     Args:
         value: String to sanitize
-        
+
     Returns:
         str: Sanitized string
     """
     # Remove control characters except newlines and tabs
     return ''.join(char for char in value if char.isprintable() or char in '\n\t')
+
+
+# ============================================================================
+# W3C TRACECONTEXT PRIMITIVES (Phase 1)
+# ============================================================================
+
+_TRACE_ID_RE = re.compile(r'^[0-9a-f]{32}$')
+_SPAN_ID_RE = re.compile(r'^[0-9a-f]{16}$')
+
+
+def generate_trace_id() -> str:
+    """Generate a 16-byte (128-bit) lowercase-hex W3C trace id."""
+    return secrets.token_hex(16)
+
+
+def generate_span_id() -> str:
+    """Generate an 8-byte (64-bit) lowercase-hex W3C span id."""
+    return secrets.token_hex(8)
+
+
+def validate_trace_id(value: str) -> bool:
+    if not isinstance(value, str):
+        return False
+    if value == "0" * 32:
+        return False  # all-zero trace id is invalid per W3C spec
+    return bool(_TRACE_ID_RE.match(value))
+
+
+def validate_span_id(value: str) -> bool:
+    if not isinstance(value, str):
+        return False
+    if value == "0" * 16:
+        return False
+    return bool(_SPAN_ID_RE.match(value))
+
+
+def get_hostname() -> str:
+    """Return a stable host identifier for resource attributes."""
+    try:
+        import socket as _s
+        return _s.gethostname()
+    except Exception:
+        return os.environ.get("HOSTNAME", "unknown")
+
+
+def get_pid() -> int:
+    return os.getpid()
