@@ -60,21 +60,56 @@ class AOPClient:
         ...     client.log_event({...})
     """
     
-    def __init__(self, storage: Optional[str] = None):
-        """
-        Initialize AOP client with specified storage backend.
-        
+    def __init__(
+        self,
+        storage: Optional[str] = None,
+        *,
+        transport: Optional[Any] = None,
+        batch: bool = False,
+        batch_max_size: int = 256,
+        batch_flush_interval_s: float = 1.0,
+    ) -> None:
+        """Initialize AOP client.
+
         Args:
             storage: Storage connection string. Defaults to SQLite.
-                    - 'sqlite:///path/file.db' - SQLite
-                    - 'postgresql://host/db' - PostgreSQL
-                    - 'memory' - In-Memory (testing)
-            
-        Raises:
-            ValueError: If storage connection string is invalid
-            ImportError: If required storage dependencies not installed
+            transport: Optional pluggable transport. If provided, events are
+                shipped through the transport instead of (or in addition to)
+                the local storage. ``transport='otlp+http://...'`` /
+                ``'aop+http://...'`` URL strings are also accepted.
+            batch: If True, wrap the transport in a BatchProcessor for async
+                batched export.
+            batch_max_size / batch_flush_interval_s: BatchProcessor knobs.
         """
         self.storage: BaseStorage = create_storage(storage)
+
+        # Optional remote transport ----------------------------------------
+        self._transport: Optional[Any] = None
+        if transport is not None:
+            self._transport = self._build_transport(transport)
+            if batch:
+                from .transport.batch import BatchProcessor
+                self._transport = BatchProcessor(
+                    self._transport,
+                    max_batch_size=batch_max_size,
+                    flush_interval_s=batch_flush_interval_s,
+                )
+
+    @staticmethod
+    def _build_transport(transport: Any) -> Any:
+        """Resolve a transport from a URL string or pre-constructed object."""
+        from .transport import (
+            HTTPJSONTransport, OTLPHTTPTransport, OTLPGRPCTransport,
+        )
+        if isinstance(transport, str):
+            if transport.startswith("aop+http://") or transport.startswith("aop+https://"):
+                return HTTPJSONTransport(endpoint=transport[4:])
+            if transport.startswith("otlp+http://") or transport.startswith("otlp+https://"):
+                return OTLPHTTPTransport(endpoint=transport[5:])
+            if transport.startswith("otlp+grpc://"):
+                return OTLPGRPCTransport(endpoint=transport[12:])
+            raise ValueError(f"Unknown transport URL scheme: {transport!r}")
+        return transport
     
     def log_event(
         self,
@@ -151,19 +186,21 @@ class AOPClient:
                 )
 
                 self.storage.log_event(event_dict)
+                self._ship_to_transport(event_dict)
                 return str(event_dict['id'])
-            
+
             else:
                 # Event is already a complete dict or TypedDict, which is compatible
                 # with Dict[str, Any] at runtime. We cast to satisfy mypy.
                 final_event = cast(Dict[str, Any], event)
-                
+
                 # Validate if requested
                 if validate:
                     validate_event(final_event)
-                
+
                 # Store event
                 self.storage.log_event(final_event)
+                self._ship_to_transport(final_event)
                 return str(final_event['id'])
             
         except (AOPValidationError, AOPStorageError):
@@ -453,6 +490,15 @@ class AOPClient:
         """
         return trace_context(correlation_id)
     
+    def _ship_to_transport(self, event: Dict[str, Any]) -> None:
+        """Best-effort ship to the configured remote transport (if any)."""
+        if self._transport is None:
+            return
+        try:
+            self._transport.export([event])
+        except Exception:
+            pass
+
     def close(self) -> None:
         """
         Close storage connections and cleanup resources.
@@ -466,7 +512,12 @@ class AOPClient:
             >>> client.close()
         """
         self.storage.close()
-    
+        if self._transport is not None:
+            try:
+                self._transport.shutdown()
+            except Exception:
+                pass
+
     def __enter__(self) -> 'AOPClient':
         """Context manager entry."""
         return self

@@ -1,0 +1,49 @@
+syntax = "proto3";
+package aop.v1;
+
+option go_package = "github.com/aop-protocol/aop/proto/aop/v1;aopv1";
+
+// Wire encoding of an AOP event. Object-shaped fields (data / metadata /
+// error / resource / attributes / tokens / cost) are carried as bytes
+// containing UTF-8-encoded JSON. This avoids forcing every schema change
+// to require a proto regen and matches the JSON-on-the-wire transports.
+message AOPEvent {
+  string id = 1;
+  string version = 2;
+  string timestamp = 3;
+  string agent_id = 4;
+  string instance_id = 5;
+  string protocol = 6;
+  string event_type = 7;
+  string correlation_id = 8;
+  string parent_id = 9;
+  string severity = 10;
+  int64 duration_ms = 11;
+
+  bytes data = 12;
+  bytes metadata = 13;
+  bytes error = 14;
+
+  string trace_id = 15;
+  string span_id = 16;
+  string parent_span_id = 17;
+
+  bytes resource = 18;
+  bytes attributes = 19;
+  bytes tokens = 20;
+  bytes cost = 21;
+}
+
+message ExportEventsRequest {
+  repeated AOPEvent events = 1;
+  string schema_version = 2;
+}
+
+message ExportEventsResponse {
+  int32 accepted = 1;
+  int32 rejected = 2;
+}
+
+service AOPCollector {
+  rpc ExportEvents(ExportEventsRequest) returns (ExportEventsResponse);
+}

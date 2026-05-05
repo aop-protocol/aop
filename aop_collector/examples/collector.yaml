@@ -1,0 +1,24 @@
+receivers:
+  - type: http
+    host: 0.0.0.0
+    port: 4319
+    auth_tokens:
+      - dev-secret
+    rate_limit_per_minute: 6000
+
+processors:
+  redact: true
+  sampler: trace_id_ratio
+  sampler_ratio: 1.0
+  enrich_resource:
+    deployment_environment: dev
+    service_name: my-agent
+
+exporters:
+  - type: sqlite
+    options:
+      url: sqlite:///aop_collector.db
+  - type: otlp_http
+    options:
+      endpoint: https://otel-collector.local
+      service_name: aop
